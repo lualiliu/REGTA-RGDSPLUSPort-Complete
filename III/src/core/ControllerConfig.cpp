@@ -16,6 +16,7 @@
 #include "ModelIndices.h"
 #include "Camera.h"
 #include "GenericGameStorage.h"
+#include <stdio.h>
 
 CControllerConfigManager ControlsManager;
 
@@ -352,6 +353,54 @@ void CControllerConfigManager::InitDefaultControlConfigMouse(CMouseControllerSta
 uint32 CControllerConfigManager::ms_padButtonsInited = 0;
 #endif
 
+#ifdef RGDS_PLUS
+void CControllerConfigManager::InitRgdsPspJoyPad(void)
+{
+	for (int32 j = 0; j < MAX_CONTROLLERACTIONS; j++)
+		ClearSettingsAssociatedWithAction((e_ControllerAction)j, JOYSTICK);
+
+	/* D-pad arrives as keyboard arrows too; keep stick walking and d-pad for weapons. */
+	ClearSettingsAssociatedWithAction(GO_FORWARD, KEYBOARD);
+	ClearSettingsAssociatedWithAction(GO_BACK, KEYBOARD);
+	ClearSettingsAssociatedWithAction(GO_LEFT, KEYBOARD);
+	ClearSettingsAssociatedWithAction(GO_RIGHT, KEYBOARD);
+	ClearSettingsAssociatedWithAction(GO_FORWARD, OPTIONAL_EXTRA);
+	ClearSettingsAssociatedWithAction(GO_BACK, OPTIONAL_EXTRA);
+	ClearSettingsAssociatedWithAction(GO_LEFT, OPTIONAL_EXTRA);
+	ClearSettingsAssociatedWithAction(GO_RIGHT, OPTIONAL_EXTRA);
+
+	/* Nintendo-labeled face (B bottom, A right, Y left, X top) via SDL Xbox map:
+	   B=SDL A=joy2, A=SDL B=joy1, Y=SDL X=joy3, X=SDL Y=joy4. */
+	SetControllerKeyAssociatedWithAction(PED_SPRINT, 2, JOYSTICK);
+	SetControllerKeyAssociatedWithAction(VEHICLE_ACCELERATE, 2, JOYSTICK);
+	SetControllerKeyAssociatedWithAction(PED_FIREWEAPON, 7, JOYSTICK);
+	SetControllerKeyAssociatedWithAction(VEHICLE_HANDBRAKE, 7, JOYSTICK);
+	SetControllerKeyAssociatedWithAction(PED_JUMPING, 3, JOYSTICK);
+	SetControllerKeyAssociatedWithAction(VEHICLE_BRAKE, 3, JOYSTICK);
+	SetControllerKeyAssociatedWithAction(VEHICLE_ENTER_EXIT, 4, JOYSTICK);
+#ifdef BIND_VEHICLE_FIREWEAPON
+	SetControllerKeyAssociatedWithAction(VEHICLE_FIREWEAPON, 5, JOYSTICK);
+#endif
+	SetControllerKeyAssociatedWithAction(CAMERA_CHANGE_VIEW_ALL_SITUATIONS, 6, JOYSTICK);
+	SetControllerKeyAssociatedWithAction(PED_LOOKBEHIND, 8, JOYSTICK);
+	SetControllerKeyAssociatedWithAction(VEHICLE_LOOKRIGHT, 8, JOYSTICK);
+	SetControllerKeyAssociatedWithAction(PED_CYCLE_WEAPON_LEFT, 16, JOYSTICK);
+	SetControllerKeyAssociatedWithAction(PED_CYCLE_WEAPON_RIGHT, 14, JOYSTICK);
+	SetControllerKeyAssociatedWithAction(PED_SNIPER_ZOOM_IN, 5, JOYSTICK);
+	SetControllerKeyAssociatedWithAction(PED_SNIPER_ZOOM_OUT, 15, JOYSTICK);
+	SetControllerKeyAssociatedWithAction(VEHICLE_CHANGE_RADIO_STATION, 13, JOYSTICK);
+	SetControllerKeyAssociatedWithAction(VEHICLE_HORN, 10, JOYSTICK);
+	SetControllerKeyAssociatedWithAction(TOGGLE_SUBMISSIONS, 11, JOYSTICK);
+
+	static int logged;
+	if (!logged) {
+		printf("RGDS: pad L1 fire/handbrake, A unused, B sprint, Y jump, X enter\n");
+		fflush(stdout);
+		logged = 1;
+	}
+}
+#endif
+
 void CControllerConfigManager::InitDefaultControlConfigJoyPad(uint32 buttons)
 {
 #ifdef XINPUT
@@ -360,6 +409,14 @@ void CControllerConfigManager::InitDefaultControlConfigJoyPad(uint32 buttons)
 #endif
 
 	m_bFirstCapture = true;
+#ifdef RGDS_PLUS
+	InitRgdsPspJoyPad();
+#ifdef LOAD_INI_SETTINGS
+	ms_padButtonsInited = 16;
+#endif
+	(void)buttons;
+	return;
+#endif
 
 	uint32 btn = buttons;
 	if (buttons > 16)

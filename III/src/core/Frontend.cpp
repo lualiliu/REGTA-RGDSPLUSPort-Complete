@@ -151,9 +151,15 @@ int8 CMenuManager::m_PrefsControllerType = CONTROLLER_XBOXONE;
 int32 CMenuManager::OS_Language = LANG_ENGLISH;
 int8 CMenuManager::m_PrefsUseVibration;
 int8 CMenuManager::m_DisplayControllerOnFoot;
+#ifdef RGDS_PLUS
+int8 CMenuManager::m_PrefsVsync = 0;
+int8 CMenuManager::m_PrefsVsyncDisp = 0;
+int8 CMenuManager::m_PrefsFrameLimiter = 0;
+#else
 int8 CMenuManager::m_PrefsVsync = 1;
 int8 CMenuManager::m_PrefsVsyncDisp = 1;
 int8 CMenuManager::m_PrefsFrameLimiter = 1;
+#endif
 int8 CMenuManager::m_PrefsShowSubtitles = 1;
 int8 CMenuManager::m_PrefsSpeakers;
 int32 CMenuManager::m_ControlMethod;
@@ -3757,7 +3763,9 @@ CMenuManager::LoadSettings()
 	int fileHandle = CFileMgr::OpenFile("gta3.set", "r");
 
 	int32 prevLang = m_PrefsLanguage;
-#if GTA_VERSION >= GTA3_PC_11
+#if defined(RGDS_PLUS)
+	CMBlur::BlurOn = false;
+#elif GTA_VERSION >= GTA3_PC_11
 	CMBlur::BlurOn = (_dwOperatingSystemVersion != OS_WIN98);
 #else
 	CMBlur::BlurOn = true;
@@ -3838,6 +3846,16 @@ CMenuManager::LoadSettings()
 
 	m_PrefsVsync = m_PrefsVsyncDisp;
 	CRenderer::ms_lodDistScale = m_PrefsLOD;
+#ifdef RGDS_PLUS
+	m_PrefsLOD = 0.65f;
+	CRenderer::ms_lodDistScale = 0.65f;
+	m_PrefsVsync = 0;
+	m_PrefsVsyncDisp = 0;
+	m_PrefsFrameLimiter = 0;
+	CMBlur::BlurOn = false;
+	m_ControlMethod = CONTROL_CLASSIC;
+	TheCamera.m_bUseMouse3rdPerson = false;
+#endif
 
 	if (m_nPrefsAudio3DProviderIndex == -1)
 		m_nPrefsAudio3DProviderIndex = -2;
@@ -5121,12 +5139,23 @@ CMenuManager::ProcessButtonPresses(void)
 						DMAudio.PlayFrontEndTrack(m_PrefsRadioStation, 1);
 						SaveSettings();
 					} else if (m_nCurrScreen == MENUPAGE_DISPLAY_SETTINGS) {
+#ifdef RGDS_PLUS
+						m_PrefsFrameLimiter = false;
+#else
 						m_PrefsFrameLimiter = true;
+#endif
 						m_PrefsBrightness = 256;
+#ifdef RGDS_PLUS
+						m_PrefsVsyncDisp = false;
+						m_PrefsLOD = 0.65f;
+						m_PrefsVsync = false;
+						CRenderer::ms_lodDistScale = 0.65f;
+#else
 						m_PrefsVsyncDisp = true;
 						m_PrefsLOD = 1.2f;
 						m_PrefsVsync = true;
 						CRenderer::ms_lodDistScale = 1.2f;
+#endif
 #ifdef ASPECT_RATIO_SCALE
 						m_PrefsUseWideScreen = AR_AUTO;
 #else

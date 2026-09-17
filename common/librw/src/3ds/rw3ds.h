@@ -359,6 +359,9 @@ Raster *allocateETC(Raster *raster);
 void rasterFromImage_etc1(rw::Raster *ras, rw::Image *img);
 
 Texture *readNativeTexture(Stream *stream);
+#ifndef RW_3DS
+Texture *readNativeTextureHost(Stream *stream);
+#endif
 void writeNativeTexture(Texture *tex, Stream *stream);
 uint32 getSizeNativeTexture(Texture *tex);
   

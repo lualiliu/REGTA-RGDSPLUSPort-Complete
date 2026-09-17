@@ -2,9 +2,11 @@
 
 #ifdef ENABLE_3DS_BOTTOM_RADAR
 
+#ifdef _3DS
 #include "lodepng/lodepng.h"
 #include "bottom_menu_map_bin.h"
 #include "bottom_touch_bin.h"
+#endif
 
 #include "BottomScreen3DS.h"
 #include "Camera.h"
@@ -22,6 +24,7 @@
 #include "TxdStore.h"
 #include "WeaponInfo.h"
 #include "World.h"
+#include "platform.h"
 
 namespace {
 static RwCamera *BottomCamera;
@@ -79,6 +82,7 @@ CreateBottomTouchOverlayTextures(void)
 {
 	if(BottomTouchOverlayTextures[0])
 		return true;
+#if defined(_3DS)
 	unsigned char *rgba = nil;
 	unsigned width = 0, height = 0;
 	if(lodepng_decode32(&rgba, &width, &height,
@@ -106,6 +110,9 @@ CreateBottomTouchOverlayTextures(void)
 		}
 	}
 	return success;
+#else
+	return false;
+#endif
 }
 
 static void
@@ -131,6 +138,7 @@ DrawBottomTouchOverlay(void)
 static RwTexture *
 CreateMenuMapTexture(void)
 {
+#if defined(_3DS)
 	unsigned char *rgba = nil;
 	unsigned width = 0, height = 0;
 	if(lodepng_decode32(&rgba, &width, &height,
@@ -162,6 +170,9 @@ CreateMenuMapTexture(void)
 	}
 	RwImageDestroy(image);
 	return RwTextureCreate(raster);
+#else
+	return nil;
+#endif
 }
 
 static RwCamera *
@@ -171,8 +182,13 @@ CreateBottomCamera(void)
 	if(camera == nil)
 		return nil;
 	RwFrame *frame = RwFrameCreate();
+#ifdef LINUX_DUAL_SCREEN
+	RwRaster *raster = RwRasterCreate(320, 240, 0, rwRASTERTYPECAMERATEXTURE);
+	RwRaster *zRaster = RwRasterCreate(320, 240, 0, rwRASTERTYPEZBUFFER);
+#else
 	RwRaster *raster = RwRasterCreate(320, 240, 0, rwRASTERTYPECAMERA);
 	RwRaster *zRaster = RwRasterCreate(320, 240, 0, rwRASTERTYPEZBUFFER);
+#endif
 	if(frame == nil || raster == nil || zRaster == nil) {
 		if(frame) RwFrameDestroy(frame);
 		if(raster) RwRasterDestroy(raster);
@@ -188,6 +204,18 @@ CreateBottomCamera(void)
 	RwV2d viewWindow = { 0.7f, 0.525f };
 	RwCameraSetViewWindow(camera, &viewWindow);
 	return camera;
+}
+
+static void
+PresentBottomRadarCamera(void)
+{
+#ifdef LINUX_DUAL_SCREEN
+	psBlitRasterToWindow(RwCameraGetRaster(BottomCamera),
+		LINUX_BOTTOM_SCREEN_X, LINUX_BOTTOM_SCREEN_Y,
+		LINUX_BOTTOM_SCREEN_WIDTH, LINUX_BOTTOM_SCREEN_HEIGHT);
+#else
+	RwCameraShowRaster(BottomCamera, nil, rwRASTERFLIPDONTWAIT);
+#endif
 }
 
 static void
@@ -396,8 +424,13 @@ RenderBottomScreen(void)
 	const bool coldStartMenu = FrontEndMenuManager.m_bGameNotLoaded &&
 		FrontEndMenuManager.m_bMenuActive;
 	if(!coldStartMenu && (FrontEndMenuManager.m_bGameNotLoaded ||
-		FrontEndMenuManager.m_bMenuActive))
+		FrontEndMenuManager.m_bMenuActive)) {
+#ifdef LINUX_DUAL_SCREEN
+		if(BottomCamera)
+			PresentBottomRadarCamera();
+#endif
 		return; // Pause preserves the most recent gameplay radar frame.
+	}
 	if(BottomCamera == nil)
 		BottomCamera = CreateBottomCamera();
 	if(BottomMenuMapTexture == nil)
@@ -439,7 +472,7 @@ RenderBottomScreen(void)
 	}
 
 	RwCameraEndUpdate(BottomCamera);
-	RwCameraShowRaster(BottomCamera, nil, rwRASTERFLIPDONTWAIT);
+	PresentBottomRadarCamera();
 }
 
 void

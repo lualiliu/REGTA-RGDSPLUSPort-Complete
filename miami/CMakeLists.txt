@@ -28,6 +28,12 @@ if(NOT ${PROJECT}_AUDIO IN_LIST ${PROJECT}_AUDIOS)
     message(FATAL_ERROR "Illegal ${PROJECT}_AUDIO=${${PROJECT}_AUDIO}")
 endif()
 
+if(UNIX)
+    set(LIBRW_PLATFORM "GL3" CACHE STRING "librw platform")
+    set(LIBRW_GL3_GFXLIB "GLFW" CACHE STRING "gfxlib for gl3")
+    set(LIBRW_TOOLS OFF CACHE BOOL "Build librw tools")
+endif()
+
 option(${PROJECT}_VENDORED_LIBRW "Use vendored librw" ON)
 if(${PROJECT}_VENDORED_LIBRW)
     add_subdirectory(vendor/librw)

@@ -113,7 +113,7 @@ PushRendergroup(const char *name)
 	if(!bDebugRenderGroups)
 		return;
 #if defined(RW_OPENGL)
-	if(GLAD_GL_KHR_debug)
+	if(GLEW_KHR_debug)
 		glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, -1, name);
 #elif defined(RW_D3D9)
 	static WCHAR tmp[256];
@@ -128,7 +128,7 @@ PopRendergroup(void)
 	if(!bDebugRenderGroups)
 		return;
 #if defined(RW_OPENGL)
-	if(GLAD_GL_KHR_debug)
+	if(GLEW_KHR_debug)
 		glPopDebugGroup();
 #elif defined(RW_D3D9)
 	D3DPERF_EndEvent();

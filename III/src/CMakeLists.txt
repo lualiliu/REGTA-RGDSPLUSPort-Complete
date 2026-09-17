@@ -2,6 +2,7 @@ find_package(Threads REQUIRED)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 file(GLOB_RECURSE ${PROJECT}_SOURCES "*.cpp" "*.h" "*.rc")
+list(FILTER ${PROJECT}_SOURCES EXCLUDE REGEX "/skel/3ds/")
 
 function(header_directories RETURN_LIST)
     file(GLOB_RECURSE ALL_SRCS *.h *.cpp *.c)
@@ -50,6 +51,10 @@ if(LIBRW_PLATFORM_D3D9)
 endif()
 
 target_compile_definitions(${EXECUTABLE} PRIVATE CMAKE_BUILD)
+if(${PROJECT}_RGDS_PLUS)
+    target_compile_definitions(${EXECUTABLE} PRIVATE RGDS_PLUS)
+    target_link_libraries(${EXECUTABLE} PRIVATE dl)
+endif()
 
 if(${PROJECT}_AUDIO STREQUAL "OAL")
     find_package(OpenAL REQUIRED)

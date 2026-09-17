@@ -144,6 +144,10 @@ CCam::Process(void)
 		Process_BehindCar(CameraTarget, TargetOrientation, SpeedVar, TargetSpeedVar);
 		break;
 	case MODE_FOLLOWPED:
+#ifdef RGDS_PLUS
+		Process_FollowPedWithMouse(CameraTarget, TargetOrientation, SpeedVar, TargetSpeedVar);
+		break;
+#endif
 #ifdef PC_PLAYER_CONTROLS
 		if(CCamera::m_bUseMouse3rdPerson)
 			Process_FollowPedWithMouse(CameraTarget, TargetOrientation, SpeedVar, TargetSpeedVar);
@@ -1515,6 +1519,13 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 	float MouseX = CPad::GetPad(0)->GetMouseX();
 	float MouseY = CPad::GetPad(0)->GetMouseY();
 	float LookLeftRight, LookUpDown;
+#ifdef RGDS_PLUS
+	UseMouse = false;
+	LookLeftRight = -CPad::GetPad(0)->LookAroundLeftRight();
+	LookUpDown = CPad::GetPad(0)->LookAroundUpDown();
+	(void)MouseX;
+	(void)MouseY;
+#else
 	if((MouseX != 0.0f || MouseY != 0.0f) && !CPad::GetPad(0)->ArePlayerControlsDisabled()){
 		UseMouse = true;
 		LookLeftRight = -2.5f*MouseX;
@@ -1523,6 +1534,7 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 		LookLeftRight = -CPad::GetPad(0)->LookAroundLeftRight();
 		LookUpDown = CPad::GetPad(0)->LookAroundUpDown();
 	}
+#endif
 	float AlphaOffset, BetaOffset;
 	if(UseMouse){
 		BetaOffset = LookLeftRight * TheCamera.m_fMouseAccelHorzntl * FOV/80.0f;
@@ -1661,6 +1673,7 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 
 	GetVectorsReadyForRW();
 
+#ifndef RGDS_PLUS
 	if(((CPed*)CamTargetEntity)->CanStrafeOrMouseControl() && CDraw::FadeValue < 250 &&
 	   (TheCamera.GetFadingDirection() != FADE_OUT || CDraw::FadeValue <= 100)){
 		float Heading = Front.Heading();
@@ -1669,6 +1682,7 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 		TheCamera.pTargetEntity->SetHeading(Heading);
 		TheCamera.pTargetEntity->GetMatrix().UpdateRW();
 	}
+#endif
 }
 
 float fBillsBetaOffset;	// made up name, actually in CCam
@@ -2140,6 +2154,28 @@ CCam::Process_Cam_On_A_String(const CVector &CameraTarget, float TargetOrientati
 	float BaseDist = Dimensions.Magnitude2D();
 
 	TargetCoors.z += Dimensions.z - 0.1f;	// final
+#ifdef RGDS_PLUS
+	{
+		float lookLR = -CPad::GetPad(0)->LookAroundLeftRight();
+		float lookUD = CPad::GetPad(0)->LookAroundUpDown();
+		if (lookLR != 0.0f || lookUD != 0.0f) {
+			CVector dist = Source - TargetCoors;
+			float length = dist.Magnitude();
+			if (length < 0.1f)
+				length = CA_MAX_DISTANCE;
+			float beta = CGeneral::GetATanOfXY(dist.x, dist.y);
+			float ground = dist.Magnitude2D();
+			float alpha = CGeneral::GetATanOfXY(ground, dist.z);
+			beta += lookLR * fStickSens * (1.0f / 14.0f) * FOV / 80.0f * CTimer::GetTimeStep();
+			alpha += lookUD * fStickSens * (0.6f / 14.0f) * FOV / 80.0f * CTimer::GetTimeStep();
+			if (alpha > DEGTORAD(45.0f)) alpha = DEGTORAD(45.0f);
+			else if (alpha < -DEGTORAD(20.0f)) alpha = -DEGTORAD(20.0f);
+			Source.x = TargetCoors.x + length * Cos(alpha) * Cos(beta);
+			Source.y = TargetCoors.y + length * Cos(alpha) * Sin(beta);
+			Source.z = TargetCoors.z + length * Sin(alpha);
+		}
+	}
+#endif
 	Beta = CGeneral::GetATanOfXY(TargetCoors.x - Source.x, TargetCoors.y - Source.y);
 	while(Alpha >= PI) Alpha -= 2*PI;
 	while(Alpha < -PI) Alpha += 2*PI;

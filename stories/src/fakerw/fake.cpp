@@ -225,7 +225,18 @@ RwInt32      RwRasterGetType(const RwRaster *raster);
 RwRaster    *RwRasterGetParent(const RwRaster *raster) { return raster->parent; }
 RwRaster    *RwRasterGetOffset(RwRaster *raster,  RwInt16 *xOffset, RwInt16 *yOffset);
 RwInt32      RwRasterGetNumLevels(RwRaster * raster);
-RwRaster    *RwRasterSubRaster(RwRaster * subRaster, RwRaster * raster, RwRect * rect);
+RwRaster    *RwRasterSubRaster(RwRaster * subRaster, RwRaster * raster, RwRect * rect)
+{
+	if(subRaster == nil || raster == nil || rect == nil)
+		return nil;
+	rw::Rect r;
+	r.x = rect->x;
+	r.y = rect->y;
+	r.w = rect->w;
+	r.h = rect->h;
+	subRaster->subRaster(raster, &r);
+	return subRaster;
+}
 RwRaster    *RwRasterRenderFast(RwRaster * raster, RwInt32 x, RwInt32 y) { return raster->renderFast(x, y) ? raster : nil; }
 RwRaster    *RwRasterRender(RwRaster * raster, RwInt32 x, RwInt32 y);
 RwRaster    *RwRasterRenderScaled(RwRaster * raster, RwRect * rect);
@@ -304,10 +315,17 @@ void _rwD3D8TexDictionaryEnableRasterFormatConversion(bool enable) { }
 RwBool rwNativeTextureHackRead(RwStream *stream, RwTexture **tex, RwInt32 size)
 {
 	*tex = Texture::streamReadNative(stream);
+	if(*tex == nil)
+		return false;
 #ifdef LIBRW
 	(*tex)->raster = rw::Raster::convertTexToCurrentPlatform((*tex)->raster);
+	if((*tex)->raster == nil){
+		(*tex)->destroy();
+		*tex = nil;
+		return false;
+	}
 #endif
-	return *tex != nil;
+	return true;
 }
 
 

@@ -1367,6 +1367,14 @@ CPlayerPed::ProcessControl(void)
 		case PED_FIGHT:
 		case PED_AIM_GUN:
 			if (!RpAnimBlendClumpGetFirstAssociation(GetClump(), ASSOC_BLOCK)) {
+#ifdef RGDS_PLUS
+				if (m_nPedState == PED_FIGHT) {
+					if (padUsed)
+						PlayerControlFighter(padUsed);
+				} else if (padUsed) {
+					PlayerControlZelda(padUsed);
+				}
+#else
 				if (TheCamera.Cams[0].Using3rdPersonMouseCam()
 #ifdef FREE_CAM
 					&& !CCamera::bFreeCam
@@ -1382,6 +1390,7 @@ CPlayerPed::ProcessControl(void)
 				} else if (padUsed) {
 					PlayerControlZelda(padUsed);
 				}
+#endif
 			}
 			if (IsPedInControl() && padUsed)
 				ProcessPlayerWeapon(padUsed);

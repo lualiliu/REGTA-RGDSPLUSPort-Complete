@@ -38,6 +38,7 @@ struct GlGlobals
 #ifdef LIBRW_SDL2
 	SDL_Window **pWindow;
 	SDL_Window *window;
+	SDL_Window *bottomWindow;
 	SDL_GLContext glcontext;
 #else
 	GLFWwindow **pWindow;

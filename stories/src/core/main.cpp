@@ -11,6 +11,7 @@
 
 #include "main.h"
 #include "CdStream.h"
+#include "platform.h"
 #include "General.h"
 #include "RwHelper.h"
 #include "Clouds.h"
@@ -483,7 +484,7 @@ ValidateVersion()
 	int32 file = CFileMgr::OpenFile("models\\coll\\peds.col", "rb");
 	char buff[128];
 
-	if ( file != -1 )
+	if ( file )
 	{
 		CFileMgr::Seek(file, 100, SEEK_SET);
 		
@@ -504,6 +505,12 @@ ValidateVersion()
 		}
 	}
 
+#ifndef _WIN32
+	printf("Could not find game data (models/coll/peds.col).\n"
+	       "Run this binary from a directory that contains the original PC (or converted LCS) game files.\n");
+	fflush(stdout);
+	_Exit(1);
+#endif
 	LoadingScreen("Invalid version", NULL, NULL);
 	
 	while(true)
@@ -2094,6 +2101,9 @@ AppEventHandler(RsEvent event, void *param)
 											
 			CameraSize(Scene.camera, (RwRect *)param,
 				SCREEN_VIEWWINDOW, DEFAULT_ASPECT_RATIO);
+#ifdef LINUX_DUAL_SCREEN
+			psApplyDualScreenTopCamera(Scene.camera);
+#endif
 			
 			return rsEVENTPROCESSED;
 		}

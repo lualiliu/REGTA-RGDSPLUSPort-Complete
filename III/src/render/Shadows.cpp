@@ -687,6 +687,10 @@ CShadows::SetRenderModeForShadowType(uint8 ShadowType)
 void
 CShadows::RenderStoredShadows(void)
 {
+#ifdef RGDS_PLUS
+	ShadowsStoredToBeRendered = 0;
+	return;
+#endif
 	RenderBuffer::ClearRenderBuffer();
 
 	RwRenderStateSet(rwRENDERSTATEZWRITEENABLE,      (void *)FALSE);
@@ -789,6 +793,9 @@ CShadows::RenderStoredShadows(void)
 void
 CShadows::RenderStaticShadows(void)
 {
+#ifdef RGDS_PLUS
+	return;
+#endif
 	RenderBuffer::ClearRenderBuffer();
 
 	RwRenderStateSet(rwRENDERSTATEZWRITEENABLE,      (void *)FALSE);
@@ -1620,6 +1627,9 @@ CShadows::CalcPedShadowValues(CVector vecLightDir,
 void
 CShadows::RenderExtraPlayerShadows(void)
 {
+#ifdef RGDS_PLUS
+	return;
+#endif
 #ifdef FIX_BUGS
 	if (CReplay::IsPlayingBack())
 		return;

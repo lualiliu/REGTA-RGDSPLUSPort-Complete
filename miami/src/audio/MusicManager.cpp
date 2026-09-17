@@ -165,7 +165,7 @@ cMusicManager::SetStartingTrackPositions(uint8 isNewGameTimer)
 
 			if (i < STREAMED_SOUND_CITY_AMBIENT && isNewGameTimer)
 				m_aTracks[i].m_nPosition = NewGameRadioTimers[i];
-			else if (i < STREAMED_SOUND_ANNOUNCE_BRIDGE_CLOSED)
+			else if (i < STREAMED_SOUND_ANNOUNCE_BRIDGE_CLOSED && m_aTracks[i].m_nLength != 0)
 				m_aTracks[i].m_nPosition = (pos * AudioManager.GetRandomNumber(i % 5)) % m_aTracks[i].m_nLength;
 			else
 				m_aTracks[i].m_nPosition = 0;
@@ -233,7 +233,7 @@ cMusicManager::SetRadioChannelByScript(uint32 station, int32 pos)
 		if (station <= STREAMED_SOUND_RADIO_POLICE) {
 			m_bRadioSetByScript = true;
 			m_nRadioStationScript = station;
-			m_nRadioPosition = pos == -1 ? -1 : pos % m_aTracks[station].m_nLength;
+			m_nRadioPosition = (pos == -1 || m_aTracks[station].m_nLength == 0) ? -1 : pos % m_aTracks[station].m_nLength;
 		}
 	}
 }

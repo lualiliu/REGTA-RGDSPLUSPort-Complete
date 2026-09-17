@@ -167,9 +167,11 @@ public:
 	static int32 GetRandomNumberInRange(int32 low, int32 high)
 		{ return low + (high - low)*(GetRandomNumber()/float(MYRAND_MAX + 1)); }
 
+#ifdef _3DS
 	// just so the compiler will shut the fuck up
 	static int GetRandomNumberInRange(int low, int high)
 		{ return GetRandomNumberInRange((int32)low, (int32)high); }
+#endif
   
 	static void SetRandomSeed(int32 seed)
 		{ mysrand(seed); }

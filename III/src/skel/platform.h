@@ -52,6 +52,10 @@ extern RwBool _psSetVideoMode(RwInt32 subSystem, RwInt32 videoMode);
 extern RwChar** _psGetVideoModeList();
 
 extern RwInt32 _psGetNumVideModes();
+#ifdef LINUX_DUAL_SCREEN
+extern void psApplyDualScreenTopCamera(RwCamera *camera);
+extern void psBlitRasterToWindow(RwRaster *raster, RwInt32 x, RwInt32 y, RwInt32 w, RwInt32 h);
+#endif
 #ifdef    __cplusplus
 }
 #endif                          /* __cplusplus */

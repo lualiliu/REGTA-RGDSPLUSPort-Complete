@@ -10,7 +10,7 @@
 #include "../rwobjects.h"
 #include "../rwengine.h"
 #ifdef RW_OPENGL
-#include <GL/glew.h>
+#include "gl3compat.h"
 #endif
 #include "rwgl3.h"
 #include "rwgl3shader.h"
@@ -173,13 +173,16 @@ rasterCreateCameraTexture(Raster *raster)
 		break;
 	}
 
-	// i don't remember why this was once here...
 	if(gl3Caps.gles){
-		// glReadPixels only supports GL_RGBA
-//		natras->internalFormat = GL_RGBA8;
-//		natras->format = GL_RGBA;
-//		natras->type = GL_UNSIGNED_BYTE;
-//		natras->bpp = 4;
+		/* GLES glReadPixels only accepts GL_RGBA. RGB8 FBOs also trip
+		 * Mali DATA_INVALID_FAULT on RK3568. */
+		natras->internalFormat = GL_RGBA8;
+		natras->format = GL_RGBA;
+		natras->type = GL_UNSIGNED_BYTE;
+		natras->hasAlpha = 1;
+		natras->bpp = 4;
+		raster->format = (raster->format & ~0xF00) | Raster::C8888;
+		raster->depth = 32;
 	}
 
 	raster->stride = raster->width*natras->bpp;
@@ -472,27 +475,30 @@ rasterLock(Raster *raster, int32 level, int32 lockMode)
 					assert(allocSz >= natras->backingStore->levels[level].size);
 					memcpy(px, natras->backingStore->levels[level].data, allocSz);
 				}else{
+#ifndef RW_GLES
 					// GLES is losing here
 					uint32 prev = bindTexture(natras->texid);
 					glGetCompressedTexImage(GL_TEXTURE_2D, level, px);
 					bindTexture(prev);
+#endif
 				}
 			}else if(gl3Caps.gles){
 				GLuint fbo;
 				glGenFramebuffers(1, &fbo);
 				bindFramebuffer(fbo);
 				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, natras->texid, 0);
-				GLenum e = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-assert(natras->format == GL_RGBA);
-				glReadPixels(0, 0, raster->width, raster->height, natras->format, natras->type, px);
-//e = glGetError(); printf("GL err4 %x (%x)\n", e, natras->format);
+				/* GLES3 requires GL_RGBA/UNSIGNED_BYTE for ReadPixels. */
+				if(natras->format == GL_RGBA && natras->type == GL_UNSIGNED_BYTE)
+					glReadPixels(0, 0, raster->width, raster->height, GL_RGBA, GL_UNSIGNED_BYTE, px);
 				bindFramebuffer(0);
 				glDeleteFramebuffers(1, &fbo);
 			}else{
+#ifndef RW_GLES
 				uint32 prev = bindTexture(natras->texid);
 				glPixelStorei(GL_PACK_ALIGNMENT, 1);
 				glGetTexImage(GL_TEXTURE_2D, level, natras->format, natras->type, px);
 				bindTexture(prev);
+#endif
 			}
 		}
 
@@ -748,6 +754,8 @@ rasterToImage(Raster *raster)
 	if(natras->isCompressed){
 		// TODO
 		RWERROR((ERR_INVRASTER));
+		if(unlock)
+			raster->unlock(0);
 		return nil;
 	}
 
@@ -761,9 +769,14 @@ rasterToImage(Raster *raster)
 		depth = 32;
 		conv = conv_RGBA8888_from_RGBA8888;
 		break;
+	case 0:
 	case Raster::C888:
 		depth = 24;
-		conv = conv_RGB888_from_RGB888;
+		if(natras->bpp == 4){
+			depth = 32;
+			conv = conv_RGBA8888_from_RGBA8888;
+		}else
+			conv = conv_RGB888_from_RGB888;
 		break;
 
 	default:
@@ -772,12 +785,16 @@ rasterToImage(Raster *raster)
 	case Raster::C4444:
 	case Raster::LUM8:
 		RWERROR((ERR_INVRASTER));
+		if(unlock)
+			raster->unlock(0);
 		return nil;
 	}
 
 	if(raster->format & Raster::PAL4 ||
 	   raster->format & Raster::PAL8){
 		RWERROR((ERR_INVRASTER));
+		if(unlock)
+			raster->unlock(0);
 		return nil;
 	}
 		

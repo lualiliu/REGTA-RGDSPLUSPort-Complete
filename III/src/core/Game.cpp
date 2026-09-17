@@ -214,10 +214,19 @@ CGame::InitialiseRenderWare(void)
 		return (false);
 	}
 	
+#ifdef RGDS_PLUS
+	RwCameraSetFarClipPlane(Scene.camera, 280.0f);
+#elif defined(LOWEND_GPU)
+	RwCameraSetFarClipPlane(Scene.camera, 400.0f);
+#else
 	RwCameraSetFarClipPlane(Scene.camera, 2000.0f);	// 250.0f on PS2 but who cares
+#endif
 	RwCameraSetNearClipPlane(Scene.camera, 0.9f);
 	
 	CameraSize(Scene.camera, nil, DEFAULT_VIEWWINDOW, DEFAULT_ASPECT_RATIO);
+#ifdef LINUX_DUAL_SCREEN
+	psApplyDualScreenTopCamera(Scene.camera);
+#endif
 	
 	/* Create a world */
 	RwBBox  bbox;

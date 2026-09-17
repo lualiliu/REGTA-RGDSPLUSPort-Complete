@@ -1061,9 +1061,7 @@ extern bool gbRenderWorld2;
 		DebugMenuAddVarBool8("Render", "Occlusion debug", &bDispayOccDebugStuff, nil);
 #endif
 #ifdef LIBRW
-		DebugMenuAddVarBool32("Render", "MatFX env map apply light", &rw::MatFX::envMapApplyLight, nil);
-		DebugMenuAddVarBool32("Render", "MatFX env map flip U", &rw::MatFX::envMapFlipU, nil);
-		DebugMenuAddVarBool32("Render", "MatFX env map use matcolor", &rw::MatFX::envMapUseMatColor, nil);
+		DebugMenuAddVarBool32("Render", "MatFX env map modulate", &rw::MatFX::modulateEnvMap, nil);
 #endif
 #ifdef EXTENDED_PIPELINES
 		static const char *worldpipenames[] = { "PSP", "PS2", "Mobile" };

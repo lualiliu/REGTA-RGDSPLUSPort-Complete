@@ -1,3 +1,4 @@
+#ifdef RW_3DS
 extern "C" {
 
 #include <3ds/svc.h>
@@ -97,3 +98,4 @@ __system_allocateHeaps(void)
 }
 
 }
+#endif

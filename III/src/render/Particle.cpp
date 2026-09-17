@@ -20,7 +20,7 @@
 // Keep the original pool storage, but bound the amount of live particle work
 // on 3DS.  This matches the proven reVC strategy without changing particle
 // layout or save/replay-facing data.
-#ifdef _3DS
+#ifdef LOWEND_GPU
 #define MAX_ACTIVE_PARTICLES_3DS  (256)
 #endif
 
@@ -222,7 +222,7 @@ float      CParticle::ms_afRandTable[CParticle::RAND_TABLE_SIZE];
 
 CParticle *CParticle::m_pUnusedListHead;
 
-#ifdef _3DS
+#ifdef LOWEND_GPU
 static int32 nActiveParticles;
 #endif
 
@@ -251,7 +251,7 @@ void CParticle::ReloadConfig()
 	debug("Initialising CParticle...\n");
 	
 	m_pUnusedListHead = gParticleArray;
-#ifdef _3DS
+#ifdef LOWEND_GPU
 	nActiveParticles = 0;
 #endif
 	
@@ -823,7 +823,7 @@ CParticle *CParticle::AddParticle(tParticleType type, CVector const &vecPos, CVe
 	if ( CTimer::GetIsPaused() )
 		return NULL;
 
-#ifdef _3DS
+#ifdef LOWEND_GPU
 	if ( nActiveParticles >= MAX_ACTIVE_PARTICLES_3DS )
 		return nil;
 #endif
@@ -1052,7 +1052,7 @@ CParticle *CParticle::AddParticle(tParticleType type, CVector const &vecPos, CVe
 	pParticle->m_pNext = psystem->m_pParticles;
 
 	psystem->m_pParticles = pParticle;
-#ifdef _3DS
+#ifdef LOWEND_GPU
 	++nActiveParticles;
 #endif
 	
@@ -1835,7 +1835,7 @@ void CParticle::RemoveParticle(CParticle *pParticle, CParticle *pPrevParticle, t
 
 	pParticle->m_pNext = m_pUnusedListHead;
 	m_pUnusedListHead = pParticle;
-#ifdef _3DS
+#ifdef LOWEND_GPU
 	if ( nActiveParticles > 0 )
 		--nActiveParticles;
 #endif

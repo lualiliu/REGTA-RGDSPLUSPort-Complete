@@ -10,615 +10,66 @@
 
 # REGTA-3DSPort-Complete
 
-REGTA brings three classic Grand Theft Auto games to New Nintendo 3DS:
+GTA III, Vice City, and Liberty City Stories for **New Nintendo 3DS**. This tree also builds a dual-screen Linux preview, and GTA III for the **Anbernic RG DS Plus**.
 
-- **Grand Theft Auto III**, based on re3 (`III`)
-- **Grand Theft Auto: Vice City**, based on reVC (`miami`)
-- **Grand Theft Auto: Liberty City Stories**, based on
-  [reStories/reLCS](https://github.com/knackers4/res) (`stories`)
+Bring your own game data. Not affiliated with Rockstar or Take-Two.
 
-Trailer：https://youtu.be/fBzzLx0BX5M
+Trailer: https://youtu.be/fBzzLx0BX5M
 
-Build any of the three games from this repository. Each has a full lower-screen
-interface, touch controls, Nintendo button prompts and a cheat-code keyboard.
-
-> [!IMPORTANT]
-> Build the ports yourself and provide your own game data: PC GTA III or Vice
-> City, or converted PS2 Liberty City Stories. Full game data, executables and
-> the devkitARM toolchain are not included. Runtime overrides and finished HOME
-> Menu artwork are included.
-
-## The games today
-
-### GTA III
-
-- Dark-blue lower-screen interface.
-- Faster loading and smoother streaming.
-- Removed motion blur; fixed vehicle materials and several crashes.
-- Final-mission music: 'push it to the limit'.
-
-Tested on New Nintendo 3DS. Busy scenes can still drop frames.
-Uses **PC GTA III data**. [Setup and controls →](III/README.md)
-
-### Vice City
-
-- Pink lower-screen interface.
-- Faster loading; restored particles and vehicle highlights.
-- Fixed character and vehicle polygons, water seams and flight-related crashes.
-- Final-mission music: 'Self Control'.
-
-Tested on New Nintendo 3DS. Demanding scenes can still cause frame drops or
-audio stutter. Uses **PC Vice City data**. [Setup and controls →](miami/README.md)
-
-### Liberty City Stories
-
-- Completed the unfinished [reStories/reLCS](https://github.com/knackers4/res)
-  campaign implementation for New Nintendo 3DS.
-- Red lower-screen interface and lightweight vehicle reflections.
-- Fixed missions, saves, world changes, cutscenes and vehicle bugs.
-- Custom text cheats and final-mission music: 'Chase'.
-
-**Main story completed on a physical New Nintendo 3DS.** Side missions and
-other optional activities are not yet verified. Please [report problems](#reporting-bugs)
-with reproduction steps and any screenshots, video or crash dump.
-
-Uses **converted PS2 LCS data**. [Setup, controls and cheats →](stories/README.md)
-
-## Supported hardware
-
-- New Nintendo 3DS
-- New Nintendo 3DS XL
-- New Nintendo 2DS XL
-- A homebrew-capable system for 3DSX builds, or custom firmware for CIA builds
-
-Old Nintendo 3DS, Old Nintendo 3DS XL and Nintendo 2DS systems are not
-supported. These ports use the New 3DS's faster CPU, L2 cache and extra memory.
-
-## Project layout
-
-All three games and their shared dependencies live in this repository.
-Download it once, then choose which game to build; there are no separate game
-repositories or branches to assemble.
-
-```text
-REGTA-3DSPort-Complete/
-├── common/       shared 3DS renderer, audio and platform dependencies
-├── III/          GTA III / re3 game tree
-├── miami/        Vice City / reVC game tree
-├── stories/      Liberty City Stories / reLCS game tree
-├── gamefiles/    selected runtime overrides for the three games
-├── scripts/      setup, build, layout-check and 3DSX install helpers
-├── packaging/    CIA scripts and finished CGFX banners, audio and icons
-├── tools/        shared host-side utilities
-└── docs/         historical implementation and verification notes
-```
-
-Keep the repository layout and symbolic links intact, even when building only
-one game. Each game's `vendor` folder links to the shared libraries in `common`.
-
-### The three game trees
-
-| Source tree | Game | Original data source | SD data path | 3DSX filename |
+| | Data | 3DS | Linux | RG DS Plus |
 | --- | --- | --- | --- | --- |
-| `III` | Grand Theft Auto III | PC | `sdmc:/3ds/re3/` | `re3.3dsx` |
-| `miami` | Grand Theft Auto: Vice City | PC | `sdmc:/3ds/miami/` | `revc.3dsx` |
-| `stories` | Grand Theft Auto: Liberty City Stories | PS2 | `sdmc:/3ds/relcs/` | `relcs.3dsx` |
+| GTA III (`III`) | PC | `/3ds/re3/` | `III/build-linux/src/re3` | yes |
+| Vice City (`miami`) | PC | `/3ds/miami/` | `miami/build-linux/src/reVC` | — |
+| LCS (`stories`) | converted PS2 | `/3ds/relcs/` | `stories/build-linux/src/reLCS` | — |
 
-Vice City uses `/3ds/miami` for data and `revc.3dsx` for the executable.
-Older reLCS builds may have used `/3ds/restories`; move that `userfiles` folder
-to `/3ds/relcs` before removing an old installation.
+Keep `vendor` symlinks into `common`. Per-game notes: [III](III/README.md), [VC](miami/README.md), [LCS](stories/README.md).
 
-## Quick start
+## Linux
 
-Install the [build dependencies](#host-prerequisites) first.
-Then, from the repository root:
+2048×768 window: 3D on the left, radar/HUD on the right.
 
 ```sh
-./scripts/setup-game.sh relcs "/path/to/extracted/LCS/PS2/data" "/Volumes/SD/3ds"
-./scripts/build.sh relcs
-./scripts/install-3dsx.sh relcs "/Volumes/SD/3ds"
+sudo apt install build-essential cmake pkg-config \
+    libglfw3-dev libglew-dev libopenal-dev libmpg123-dev libgl1-mesa-dev
+
+./scripts/build-linux.sh re3    # or revc / relcs / all
+cd /path/to/full/game/data
+../III/build-linux/src/re3
 ```
 
-Replace `relcs` with `re3` or `revc` and provide the corresponding PC game
-directory when preparing either PC title.
+## RG DS Plus (GTA III)
 
-Installing the executable does not install the game data. Both CIA and 3DSX
-builds load it from the matching folder under `sdmc:/3ds/`.
-
-## Preparing game data
-
-Run the interactive helper with no arguments:
+Two 1024×768 screens. Look by dragging the right screen.
 
 ```sh
-./scripts/setup-game.sh
+./scripts/build-rgds.sh
+./scripts/deploy-rgds.sh
 ```
 
-It asks for:
+Needs an aarch64 cross compiler, `sshpass`, and SSH to the device. Put PC GTA III data in `/mnt/sdcard/Ports/gta3`. Override host/user with `RGDS_HOST`, `RGDS_USER`, `SSHPASS`.
 
-1. `re3`, `revc` or `relcs`;
-2. the original game-data directory;
-3. the mounted SD card's `/3ds` directory, not the SD root.
+<a id="building-from-source"></a>
+<a id="preparing-game-data"></a>
+<a id="cia-packaging"></a>
+<a id="changelog"></a>
+<a id="grand-theft-auto-iii--re3"></a>
+<a id="grand-theft-auto-vice-city--revc"></a>
+<a id="grand-theft-auto-liberty-city-stories--relcs"></a>
+<a id="credits-and-legal-notice"></a>
 
-The same operation can be scripted:
+## 3DS
 
-```sh
-./scripts/setup-game.sh re3   "/path/to/GTA III"       "/Volumes/SD/3ds"
-./scripts/setup-game.sh revc  "/path/to/Vice City"     "/Volumes/SD/3ds"
-./scripts/setup-game.sh relcs "/path/to/extracted LCS" "/Volumes/SD/3ds"
-```
-
-The helper copies the required data without changing the original files. It
-leaves out desktop executables and temporary files, then copies selected
-overrides from the root `gamefiles/<game>` folder. Existing saves in the
-destination's `userfiles` folder are preserved.
-
-See [gamefiles](gamefiles/README.md) for the included overrides. Original models,
-radio stations and other base data must come from your own game.
-
-### Expected SD data layout
-
-This layout matches the files used for testing on a physical console:
-
-```text
-sdmc:/3ds/
-├── re3/
-│   ├── TEXT/  anim/  audio/music/  data/  models/  movies/  mp3/  txd/
-│   ├── models/txd.img  models/txd.dir
-│   ├── re3.ini
-│   └── userfiles/
-├── miami/
-│   ├── Audio/music/  TEXT/  anim/  data/  models/  movies/  mp3/  txd/
-│   ├── models/txd.img  models/txd.dir
-│   ├── reVC.ini
-│   └── userfiles/
-└── relcs/
-    ├── AUDIO/{CUTSCENE,MUSIC,NEWS}/  DATA/  TEXT/  anim/  models/
-    ├── movies/  neo/  txd/
-    ├── models/txd.img  models/txd.dir
-    ├── reLCS.ini
-    └── userfiles/
-```
-
-Keep the documented letter case even if the SD card itself is case-insensitive:
-staging and verification may occur on a case-sensitive host. GTA III uses
-`audio`, Vice City uses `Audio`, and LCS uses `AUDIO`; LCS data uses `DATA`.
-The final-mission tracks therefore live at:
-
-```text
-re3/audio/music/PUSH_FM.WAV        re3/audio/music/PUSH_LOOP.WAV
-miami/Audio/music/SELF_FM.WAV      miami/Audio/music/SELF_LOOP.WAV
-relcs/AUDIO/MUSIC/CHASE_FM.WAV     relcs/AUDIO/MUSIC/CHASE_LOOP.WAV
-```
-
-The setup helper copies these included overrides:
-
-| Game | Included data overrides |
-| --- | --- |
-| GTA III | `TEXT/american.gxt`, `audio/music`, `data/PARTICLE.CFG`, `data/main_d.scm`, `data/main_freeroam.scm`, `movies` |
-| Vice City | `Audio/music`, `TEXT/american.gxt`, `data/particle.cfg`, `movies` |
-| LCS | `AUDIO/MUSIC`, `movies`, `txd/LOADSC0.TXD` |
-
-The remaining files come from your original game data or are generated by the
-port. If you add an override, update both this list and the setup helper.
-
-A clean install creates default `.ini` settings on first launch. Keep your own
-settings and saves in `userfiles`; there is no need to copy someone else's.
-Keep the generated `models/txd.img` and `models/txd.dir` texture cache too—it
-makes a substantial difference to loading and streaming speed.
-
-Desktop DLLs, old executables, logs and converter utilities left over from an
-earlier installation are not needed on the SD card.
-
-### Liberty City Stories data and audio
-
-Prepare your PS2 assets with the
-[reLCS Asset Converter from reStories](https://github.com/knackers4/res/releases/tag/relcs)
-first. Its Windows executable is named `reLCSAssetConverter.exe`; see the
-[upstream instructions](https://github.com/knackers4/res#how-can-i-try-it).
-REGTA's setup helper expects converted assets, not just the contents of an
-extracted ISO.
-
-Select the prepared PS2 data folder containing:
-
-```text
-DATA/gta_lcs.DAT
-models/gta3.img
-AUDIO/sfx.RAW
-AUDIO/MUSIC/*.VB
-AUDIO/NEWS/*.VB
-AUDIO/CUTSCENE/*.VB
-```
-
-REGTA's audio-conversion step requires `ffmpeg` and a host C++ compiler. It converts the 19
-continuous music/radio streams to 24 kHz mono IMA ADPCM WAV, avoiding the
-real-time cost of MP3 radio decoding on 3DS. NEWS and CUTSCENE streams become
-24 kHz mono MP3. The large source VB streams and redundant `SET0` through
-`SET6` split banks are not copied; the active merged `sfx.RAW` and `sfx.sdt`
-gameplay sound library is retained.
-
-See [`stories/README.md`](stories/README.md) for the complete reLCS-specific
-setup, controls, features and cheat-code reference.
-
-## Building from source
-
-### Host prerequisites
-
-Production builds require devkitARM release 55 / GCC 10.2, which is not
-distributed in this repository. Download and install that toolchain separately.
-A newer system compiler can produce an executable that links cleanly but fails
-on hardware because these ports use legacy libctru/newlib-era code.
-
-Keep symbolic links intact when cloning or extracting the source. You will need:
-
-- a POSIX shell, GNU Make, `rsync`, `md5sum` and normal Unix build tools;
-- devkitPro host tools and 3DS port libraries, normally installed below
-  `/opt/devkitpro/tools` and `/opt/devkitpro/portlibs`;
-- a separately downloaded devkitARM release 55 / GCC 10.2 compiler tree;
-- `ffmpeg` and a host C++ compiler only when preparing LCS audio from PS2 data.
-
-On macOS, a normal devkitPro installation plus Command Line Tools and Homebrew
-`coreutils` (for `md5sum`) supplies the host dependencies; install Homebrew
-`ffmpeg` as well when preparing LCS. Point `DEVKITARM` at the separately
-installed r55 compiler and `DEVKITPRO` at the directory containing the host
-tools and port libraries. For example:
+New 3DS family only. Compiler: **devkitARM r55**.
 
 ```sh
 export DEVKITPRO=/opt/devkitpro
 export DEVKITARM=/path/to/devkitARM-r55
-export PATH="$DEVKITARM/bin:$DEVKITPRO/tools/bin:$PATH"
-```
 
-The build helper honors these variables and defaults to the conventional
-`/opt/devkitpro` layout when they are not set.
-
-### Verify and compile
-
-Start from the repository root and verify the shared dependency links before
-building:
-
-```sh
-./scripts/verify-layout.sh
-```
-
-Build one game or all three:
-
-```sh
+./scripts/setup-game.sh re3 "/path/to/GTA III" "/Volumes/SD/3ds"
 ./scripts/build.sh re3
-./scripts/build.sh revc
-./scripts/build.sh relcs
-./scripts/build.sh all
+./scripts/install-3dsx.sh re3 "/Volumes/SD/3ds"
 ```
 
-Expected outputs:
+Same for `revc` and `relcs`. LCS data must be converted first ([reLCS Asset Converter](https://github.com/knackers4/res/releases/tag/relcs)). CIA: `./packaging/production_cia/build_production.sh`.
 
-```text
-III/build/re3.elf
-III/build/re3.3dsx
-miami/build/miami.elf
-miami/build/miami.3dsx
-stories/build/relcs.elf
-stories/build/relcs.3dsx
-```
-
-Vice City builds as `miami.3dsx`; the install helper renames it to `revc.3dsx`.
-The build helper sets the loading and lower-screen options used by the tested
-builds, plus `OPTIMIZED_BUILD=1` for Vice City.
-
-Do not reuse object files produced by another compiler or important flag set.
-Clean only the affected tree and then rebuild it:
-
-```sh
-make -C III/build -f GNUmakefile clean       # GTA III
-make -C miami/build -f GNUmakefile clean     # Vice City
-make -C stories/build -f GNUmakefile clean   # LCS
-```
-
-Then rerun the matching `./scripts/build.sh` command. Test the result on your
-console, especially after changing the compiler or build flags.
-
-## Installing a 3DSX
-
-Copy the build to your SD card with:
-
-```sh
-./scripts/install-3dsx.sh re3   "/Volumes/SD/3ds"
-./scripts/install-3dsx.sh revc  "/Volumes/SD/3ds"
-./scripts/install-3dsx.sh relcs "/Volumes/SD/3ds"
-```
-
-This produces `/3ds/re3.3dsx`, `/3ds/revc.3dsx` or `/3ds/relcs.3dsx`. The game
-data remains in the directory shown in the architecture table above.
-
-## CIA packaging
-
-Once all three ELF files are built, you can package them as CIAs:
-
-```sh
-./packaging/production_cia/build_production.sh
-```
-
-The finished CGFX banners, encoded banner audio and 48×48 icons are included in
-[packaging/prebuilt](packaging/prebuilt/README.md). Packaging uses them directly;
-Blender, pycgfx, ImageMagick and the original vehicle assets are not needed.
-
-Install zsh, bannertool, `makerom` and `3dsxtool` separately and put the
-tools on `PATH`. You can also specify their executable paths with
-`BANNERTOOL`, `MAKEROM` and `THREEDSXTOOL`. The generated banners,
-icons and game packages are written only to the ignored output folder.
-
-The completed packages are written to:
-
-```text
-packaging/production_cia/output/GTA3 For Nintendo 3DS.cia
-packaging/production_cia/output/GTAVC For Nintendo 3DS.cia
-packaging/production_cia/output/GTALCS For Nintendo 3DS.cia
-```
-
-| Game | Title ID | Product code | Long HOME title |
-| --- | --- | --- | --- |
-| GTA III | `00040000002F6000` | `CTR-P-0RE3` | Grand Theft Auto III |
-| Vice City | `00040000002F6100` | `CTR-P-REVC` | Grand Theft Auto: Vice City |
-| Liberty City Stories | `00040000002F6200` | `CTR-P-RLCS` | Grand Theft Auto: Liberty City Stories |
-
-Production CIAs use New 3DS 804 MHz mode, L2 cache, expanded application
-memory, direct SDMC access and the required video service. They contain no
-commercial RomFS data and always load the original game files from the SD card.
-
-CIA and 3DSX builds use the same SD data and saves.
-
-### Build and setup troubleshooting
-
-- `verify-layout.sh` reporting a missing dependency normally means symbolic
-  links were flattened or one game tree was moved away from `common`. Restore
-  the repository layout before compiling.
-- `md5sum: command not found` occurs while makefiles calculate their build
-  fingerprint. Install GNU coreutils; substituting macOS `md5` does not match
-  the options used by the makefiles.
-- A compiler-version or stale-fingerprint failure requires the affected
-  makefile's `clean` target followed by `build.sh`; do not delete another game
-  tree or the shared libraries.
-- LCS setup errors about `.VB`, `sfx.RAW` or `gta_lcs.DAT` mean the selected
-  directory is not the expected extracted PS2 data root. Select the directory
-  that directly contains `AUDIO`, `DATA` and `models`.
-- If CIA packaging cannot find bannertool, `makerom` or `3dsxtool`, check
-  that the tool is installed and its path is set.
-- A package that reaches HOME Menu but cannot find data usually has the wrong
-  runtime directory or letter case. CIA builds still require `/3ds/re3`,
-  `/3ds/miami` or `/3ds/relcs` exactly as documented.
-- A very slow first launch with no native texture cache can be normal. Do not
-  interrupt cache generation merely because ELF and CIA construction were
-  quick.
-
-## Shared Nintendo 3DS interface
-
-All three games use Nintendo button labels and the same basic controls:
-
-- Circle Pad controls movement or steering.
-- C-stick controls the camera.
-- ABXY, L/R and ZL/ZR are mapped to the games' native actions.
-- START pauses and SELECT cycles the gameplay camera.
-- The lower screen presents loading progress, radar/status information and
-  contextual touch controls.
-- Touch the lower screen once to reveal the overlay. The first touch only
-  reveals it; release, then tap L3/R3 or drag the Camera region.
-- The overlay hides after five seconds without touch input.
-- Press L + R + ZL + ZR together during gameplay to open the 3DS system
-  keyboard for text cheat entry.
-
-Some actions differ between games; follow the in-game tutorials and button
-prompts for those.
-
-## Changelog
-
-### Shared New Nintendo 3DS platform
-
-#### Interface and controls
-
-- Full lower-screen map, HUD, loading display and touch controls.
-- Game-specific colours, fonts and icons.
-- Fixed stale maps, loading flashes and HUD visibility during cutscenes.
-- Nintendo button prompts throughout menus, shops and tutorials.
-- A confirms; B returns, including all three games' shops.
-- Adjusted Circle Pad and C-stick dead zones; fixed camera drift after transitions.
-- R for third-person rifle aim; L + R for first-person aim.
-- A/B for sniper zoom in/out.
-- Clearer weapon sights at 3DS resolution.
-- VC/LCS map: Y marker, ZR/R zoom, L legend, B back.
-- L + R + ZL + ZR opens the text cheat keyboard.
-- Full mission names in save lists, including supported older truncated titles.
-
-#### Rendering and performance
-
-- Fixed skinning, transparency, texture-state and geometry-rendering errors.
-- Fixed foliage hiding scenery and transparent surfaces turning opaque.
-- Fixed vehicle windows, lights, damage layers, decals and plates.
-- Reduced excessive vehicle-highlight brightness.
-- Faster animation loading and native texture streaming.
-- Spread streaming work across frames to reduce stalls.
-- Improved texture reclamation and low-memory handling.
-- Reduced distant effects, collision debris, lighting and particle costs.
-- Removed unused audio processing and redundant stereo work.
-- Prioritised mission dialogue, weapons and other important sounds.
-- Fixed duplicate sounds, audio-stream restarts and music-loop stutter.
-
-#### Setup and presentation
-
-- Shared build, data-preparation and installation scripts.
-- devkitARM r55 / GCC 10.2 builds with toolchain checks.
-- Separate CIA title IDs and SD data folders.
-- New 3DS CPU, cache and expanded-memory support.
-- Skippable hardware-decoded startup movies.
-- Custom icons and animated HOME Menu vehicle banners.
-- Smoothed banner logos; fixed the LCS logo edge and HOME Menu freeze.
-- Final-mission music with looping, cutscene volume changes and ending fades.
-- Radio switching disabled while final-mission music is active.
-
-### Grand Theft Auto III / re3
-
-- Complete dark-blue lower-screen interface and main-menu map.
-- Faster animation loading and smoother texture streaming.
-- Removed dynamic motion-blur trails.
-- Reduced distant detail and costly effects in busy scenes.
-- Fixed white vehicle polygons, overbright highlights and sunset colour errors.
-- Restored transparent windows, lights and vehicle decals.
-- Fixed the Staunton tower-clock crash.
-- Fixed gameplay freezing while the radio kept playing.
-- Added 'push it to the limit' to the final mission.
-- Added the animated Kuruma HOME Menu banner.
-
-### Grand Theft Auto: Vice City / reVC
-
-- Complete pink lower-screen interface.
-- Removed the multi-minute animation-loading delay.
-- Faster collision loading and staged loading progress.
-- Restored particle settings, colours and transparency.
-- Fixed smoke, fire, rain and other effects appearing as opaque rectangles.
-- Reduced automatic-weapon visual effects without changing damage.
-- Fixed broken character polygons and mission-character rendering.
-- Fixed vehicle colours, highlights, windows, decals and plates.
-- Fixed textures staying blurry after memory pressure.
-- Fixed boat rendering and missing water sections.
-- Smoothed near/middle/far water transitions without removing detail levels.
-- Fixed white foreground water.
-- Fixed streaming crashes during flights.
-- Improved mission and telephone dialogue loading.
-- Restored normal pedestrian and traffic defaults.
-- Fixed startup data-path handling and stale loading-screen textures.
-- Added 'Self Control' to the final mission, with the climax after Lance's reveal.
-- Added the animated Admiral HOME Menu banner.
-
-### Grand Theft Auto: Liberty City Stories / reLCS
-
-#### Campaign and saves
-
-- Completed and repaired reStories so the main story can be finished on New 3DS.
-- Added PS2 game-data support and 3DS audio conversion.
-- Fixed mission scripts, introduction triggers and script loading.
-- Restored saved world changes, buildings and collision.
-- Fixed Callahan Bridge, lift-bridge, ferry and Fort Staunton states after loading.
-- Fixed overlapping intact and destroyed Fort Staunton scenery.
-- Preserved hidden-package rewards, safehouse pickups and special garage vehicles.
-- Fixed saves with mission vehicles crashing on load.
-- Fixed save/load ordering, script timers and shutdown crashes.
-- Updated save prompts and restored the cheat warning.
-- Added custom GTA-style cheat names, safehouse/mission teleports and checkpoint testing.
-
-#### Missions and characters
-
-- Fixed flamethrower objectives in 'Friggin’ the Riggin’'.
-- Restored Portland's crusher magnet and crane models.
-- Fixed leftover mission braking and radio restrictions.
-- Fixed missing boats and occupants in 'The Sicilian Gambit'.
-- Fixed the player's boat exploding at the lighthouse transition.
-- Restored final-mission helicopter attacks and rocket damage.
-- Fixed Massimo being knocked down while boarding the helicopter.
-- Restored ending credits.
-- Added 'Chase' to the final mission, including checkpoint restarts and the helicopter climax.
-- Fixed broken high-detail cutscene characters and animation-memory errors.
-- Fixed people disappearing after cutscenes.
-- Fixed Toni standing through vehicles and freezing during arrest.
-- Fixed looping landing animations and restored the landing roll.
-- Fixed drive-by weapon selection after cutscenes.
-- Restored race countdowns; removed broken checkpoint light columns.
-- Kept mission titles visible for at least three seconds.
-- Fixed mission-message fades and reward colours.
-- Removed the oversized controller diagram to avoid pause-menu memory stalls.
-
-#### World and vehicles
-
-- Reduced large-building flicker and repaired distant-island LOD visibility.
-- Restored streamed safehouse and mission interiors.
-- Fixed foliage transparency and reduced its rendering cost.
-- Fixed short-range water tiles and white near water.
-- Fixed ferry colour changes and black polygons.
-- Added lightweight vehicle reflections and smooth entry/exit transitions.
-- Reduced reflection colour bleed and rainbow artefacts.
-- Restored transparent vehicle windows, wheels, lights and reverse audio.
-- Fixed overlapping decals and plates.
-- Fixed glass-shattering crashes while keeping the original shard effect.
-- Reduced excessive tyre smoke, dirt and other particle costs.
-- Aligned default pedestrian and traffic density with the other ports.
-- Added the animated Leone Sentinel HOME Menu banner.
-
-LCS main-story completion is verified on hardware. Side missions, optional
-activities and distant-island viewpoints still need more testing.
-
-## Texture caches and first launch
-
-`models/txd.img` and `models/txd.dir` are generated native texture caches, not
-original source assets. When they are absent, a build with `USE_TXD_CDIMAGE`
-can create them from the installed game data. First-time conversion on the
-console may take a long time. Preserve a known-good generated cache unless the
-underlying textures or converter change.
-
-The capability record (`DATA/CAPS.DAT` in LCS) is generated with the cache.
-A fresh setup will not contain that record, the texture cache or personal
-settings until the game creates them.
-
-Use caches made by the matching converter, with mipmaps intact. An old or
-incorrectly converted cache can still cause texture problems or slow streaming
-even if its filenames are correct.
-
-## Save data
-
-Each game stores settings and saves under its own runtime directory:
-
-```text
-sdmc:/3ds/re3/userfiles/
-sdmc:/3ds/miami/userfiles/
-sdmc:/3ds/relcs/userfiles/
-```
-
-Back up `userfiles` before replacing save-conversion tools, testing modified
-scripts, or migrating from an older runtime path. The setup helper preserves
-an existing destination save directory, but a manual folder replacement may
-not.
-
-## Known limitations
-
-- New 3DS-family hardware is required.
-- Initial native texture conversion can be slow.
-- Very busy scenes and demanding cutscenes can still cause frame drops or
-  audio stutter.
-- Emulator performance and behaviour can differ from a physical console.
-- ASI plugins, CLEO scripts, binary desktop patches and desktop limit adjusters
-  do not work. Their functionality must be integrated into source and rebuilt.
-- reLCS required more reconstruction than re3 or reVC. The main story is
-  playable to the end, but not every unused PSP/PS2 feature has been recreated.
-- LCS main-story completion has been verified on a physical New Nintendo 3DS.
-  Side missions and other optional activities have not yet been verified.
-
-## Reporting bugs
-
-If you run into a problem, please open an Issue in this repository. Include
-as much of the following as you can:
-
-- The game, build or commit, console model, and whether you use CIA or 3DSX.
-- The mission name or location, steps to reproduce the problem, what you
-  expected to happen, and what actually happened.
-- Whether it happens every time, only after extended play, or after loading
-  a save; mention any cheats or mods used.
-- The crash dump (`crash_dump_*.dmp`) if one was generated, plus any relevant
-  logs.
-- Screenshots or a short video showing the problem. A save from just before
-  the issue is helpful too.
-
-You can still report a bug without a dump—for freezes, missing objects and
-mission problems, clear reproduction steps and pictures are often more useful.
-
-## Credits and legal notice
-
-The LCS port is based on
-[reStories by knackers4 and its contributors](https://github.com/knackers4/res).
-We continued its unfinished reLCS implementation and adapted it for New 3DS.
-The [PS2 asset converter](https://github.com/knackers4/res/releases/tag/relcs)
-also comes from that project.
-
-This project also builds on re3/reVC, the original community Nintendo 3DS port,
-librw, devkitPro, libctru, Citro3D, OpenAL Soft, mpg123 and their contributors.
-
-The source is provided for educational, documentation and modding purposes.
-This project is not affiliated with Rockstar Games or Take-Two Interactive.
-The full original games are not included. The selected overrides and HOME Menu
-artwork do not replace the required game data. Please keep the upstream credits
-and follow the licences of the code you use.
+Based on re3/reVC, the community 3DS port, [reStories](https://github.com/knackers4/res), librw, and SDL2.

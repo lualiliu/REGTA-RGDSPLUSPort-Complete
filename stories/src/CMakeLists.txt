@@ -2,6 +2,7 @@ find_package(Threads REQUIRED)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 file(GLOB_RECURSE ${PROJECT}_SOURCES "*.cpp" "*.h" "*.rc")
+list(FILTER ${PROJECT}_SOURCES EXCLUDE REGEX "/skel/3ds/")
 
 function(header_directories RETURN_LIST)
     file(GLOB_RECURSE ALL_SRCS *.h *.cpp *.c)
@@ -168,5 +169,3 @@ if(${PROJECT}_INSTALL)
         install(FILES $<TARGET_PDB_FILE:${EXECUTABLE}> DESTINATION "." OPTIONAL)
     endif()
 endif()
-
-reVC_platform_target(${EXECUTABLE} INSTALL)

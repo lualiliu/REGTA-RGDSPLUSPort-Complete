@@ -79,6 +79,10 @@ add_library(librw
     gl/rwwdgl.h
     gl/wdgl.cpp
 
+    3ds/3dstexhost.cpp
+    3ds/tex/rg_etc1.h
+    3ds/tex/rg_etc1.cpp
+
     lodepng/lodepng.h
     lodepng/lodepng.cpp
 

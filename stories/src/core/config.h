@@ -345,10 +345,24 @@ enum Config {
 #define NEW_RENDERER		// leeds-like world rendering, needs librw
 #endif
 
-#ifdef _3DS
+#if defined(_3DS) || defined(RW_GL3)
+/* This tree's librw is the 3DS-era fork and lacks later GL3 uniform/VAO helpers. */
 #undef EXTENDED_PIPELINES
 #undef SCREEN_DROPLETS
 #undef NEW_RENDERER
+#endif
+
+#if defined(LIBRW) && defined(RW_GL3) && !defined(_3DS)
+#define LINUX_DUAL_SCREEN
+#define ENABLE_3DS_BOTTOM_RADAR
+#define LINUX_WINDOW_WIDTH 2048
+#define LINUX_WINDOW_HEIGHT 768
+#define LINUX_TOP_SCREEN_WIDTH 1024
+#define LINUX_TOP_SCREEN_HEIGHT 768
+#define LINUX_BOTTOM_SCREEN_X 1024
+#define LINUX_BOTTOM_SCREEN_Y 0
+#define LINUX_BOTTOM_SCREEN_WIDTH 1024
+#define LINUX_BOTTOM_SCREEN_HEIGHT 768
 #endif
 
 #define FIX_SPRITES	// fix sprites aspect ratio(moon, coronas, particle etc)

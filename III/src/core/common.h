@@ -2,10 +2,12 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 #define _USE_MATH_DEFINES
+#ifdef _MSC_VER
 #pragma warning(disable: 4244)	// int to float
 #pragma warning(disable: 4800)	// int to bool
 #pragma warning(disable: 4838)  // narrowing conversion
 #pragma warning(disable: 4996)  // POSIX names
+#endif
 
 #ifdef __MWERKS__
 #define __STDC_LIMIT_MACROS // so we get UINT32_MAX etc

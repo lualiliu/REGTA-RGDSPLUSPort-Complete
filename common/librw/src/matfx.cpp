@@ -617,7 +617,9 @@ registerMatFXPlugin(void)
 	d3d9::initMatFX();
 	wdgl::initMatFX();
 	gl3::initMatFX();
+#ifdef RW_3DS
 	c3d::initMatFX();
+#endif
 
 	matFXGlobals.atomicOffset =
 	Atomic::registerPlugin(sizeof(int32), ID_MATFX,

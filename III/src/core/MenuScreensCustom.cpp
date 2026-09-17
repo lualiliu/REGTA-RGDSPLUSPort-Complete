@@ -115,9 +115,15 @@ void RestoreDefGraphics(int8 action) {
 	    		FrontEndMenuManager.m_PrefsIslandLoading = FrontEndMenuManager.ISLAND_LOADING_LOW;
 	#endif
 	#ifdef GRAPHICS_MENU_OPTIONS // otherwise Frontend will handle those
+#ifdef RGDS_PLUS
+		CMenuManager::m_PrefsFrameLimiter = false;
+		CMenuManager::m_PrefsVsyncDisp = false;
+		CMenuManager::m_PrefsVsync = false;
+#else
 		CMenuManager::m_PrefsFrameLimiter = true;
 		CMenuManager::m_PrefsVsyncDisp = true;
 		CMenuManager::m_PrefsVsync = true;
+#endif
 		CMenuManager::m_PrefsUseWideScreen = false;
 		FrontEndMenuManager.m_nDisplayVideoMode = FrontEndMenuManager.m_nPrefsVideoMode;
 		#if GTA_VERSION >= GTA3_PC_11

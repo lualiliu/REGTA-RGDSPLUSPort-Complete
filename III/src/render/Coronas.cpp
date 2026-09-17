@@ -423,6 +423,9 @@ CCoronas::Render(void)
 void
 CCoronas::RenderReflections(void)
 {
+#ifdef RGDS_PLUS
+	return;
+#endif
 	int i;
 	CColPoint point;
 	CEntity *entity;

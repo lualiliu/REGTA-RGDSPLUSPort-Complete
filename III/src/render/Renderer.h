@@ -8,7 +8,9 @@ class CEntity;
 #define LOD_DISTANCE 300.0f
 #endif
 #define FADE_DISTANCE 20.0f
-#ifdef _3DS
+#ifdef RGDS_PLUS
+#define STREAM_DISTANCE 18.0f
+#elif defined(LOWEND_GPU)
 #define STREAM_DISTANCE 24.0f
 #else
 #define STREAM_DISTANCE 30.0f

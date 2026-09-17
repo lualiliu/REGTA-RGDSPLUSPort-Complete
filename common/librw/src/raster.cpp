@@ -525,6 +525,8 @@ Raster::convertTexToCurrentPlatform(rw::Raster *ras)
 {
 	using namespace rw;
 
+	if(ras == nil)
+		return nil;
 	if(ras->platform == rw::platform)
 		return ras;
 	// compatible platforms
@@ -556,6 +558,8 @@ Raster::convertTexToCurrentPlatform(rw::Raster *ras)
 	// fall back to going through Image directly
 	int32 width, height, depth, format;
 	Image *img = ras->toImage();
+	if(img == nil)
+		return ras;
 	// TODO: maybe don't *always* do this?
 	img->unpalettize();
 	Raster::imageFindRasterFormat(img, Raster::TEXTURE, &width, &height, &depth, &format);
@@ -569,6 +573,10 @@ Raster::convertTexToCurrentPlatform(rw::Raster *ras)
 	for(int i = 1; i < numLevels; i++){
 		ras->lock(i, Raster::LOCKREAD);
 		img = ras->toImage();
+		if(img == nil){
+			ras->unlock(i);
+			break;
+		}
 		// TODO: maybe don't *always* do this?
 		img->unpalettize();
 		newras->lock(i, Raster::LOCKWRITE|Raster::LOCKNOFETCH);

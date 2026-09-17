@@ -15,6 +15,7 @@
 
 #include "main.h"
 #include "CdStream.h"
+#include "platform.h"
 #include "General.h"
 #include "RwHelper.h"
 #include "Clouds.h"
@@ -258,7 +259,7 @@ ClearBottomLoadingScreen(void)
 }
 #endif
 
-#if defined(_3DS) && defined(ENABLE_3DS_BOTTOM_RADAR)
+#ifdef ENABLE_3DS_BOTTOM_RADAR
 namespace {
 static RwCamera *BottomRadarCamera;
 enum { NUM_BOTTOM_TOUCH_PARTS = 4 };
@@ -285,8 +286,13 @@ CreateBottomRadarCamera(void)
 		return nil;
 
 	RwFrame *frame = RwFrameCreate();
+#ifdef LINUX_DUAL_SCREEN
+	RwRaster *raster = RwRasterCreate(320, 240, 0, rwRASTERTYPECAMERATEXTURE);
+	RwRaster *zRaster = RwRasterCreate(320, 240, 0, rwRASTERTYPEZBUFFER);
+#else
 	RwRaster *raster = RwRasterCreate(320, 240, 0, rwRASTERTYPECAMERA);
 	RwRaster *zRaster = RwRasterCreate(320, 240, 0, rwRASTERTYPEZBUFFER);
+#endif
 	if(frame == nil || raster == nil || zRaster == nil) {
 		if(frame) RwFrameDestroy(frame);
 		if(raster) RwRasterDestroy(raster);
@@ -303,6 +309,18 @@ CreateBottomRadarCamera(void)
 	RwV2d viewWindow = { 0.7f, 0.525f };
 	RwCameraSetViewWindow(camera, &viewWindow);
 	return camera;
+}
+
+static void
+PresentBottomRadarCamera(void)
+{
+#ifdef LINUX_DUAL_SCREEN
+	psBlitRasterToWindow(RwCameraGetRaster(BottomRadarCamera),
+		LINUX_BOTTOM_SCREEN_X, LINUX_BOTTOM_SCREEN_Y,
+		LINUX_BOTTOM_SCREEN_WIDTH, LINUX_BOTTOM_SCREEN_HEIGHT);
+#else
+	RwCameraShowRaster(BottomRadarCamera, nil, rwRASTERFLIPDONTWAIT);
+#endif
 }
 
 static void
@@ -362,6 +380,7 @@ CreateEmbeddedTexturePart(const uint8 *rgba, int sourceWidth,
 static bool
 CreateBottomTouchOverlayTextures(void)
 {
+#if defined(_3DS)
 	unsigned char *rgba = nil;
 	unsigned width = 0;
 	unsigned height = 0;
@@ -391,6 +410,9 @@ CreateBottomTouchOverlayTextures(void)
 		}
 	}
 	return success;
+#else
+	return false;
+#endif
 }
 
 static void
@@ -542,8 +564,13 @@ RenderBottomRadar(void)
 	const bool coldStartMenu = FrontEndMenuManager.m_bGameNotLoaded &&
 		FrontEndMenuManager.m_bMenuActive;
 	if(!coldStartMenu && (FrontEndMenuManager.m_bGameNotLoaded ||
-		FrontEndMenuManager.m_bMenuActive))
+		FrontEndMenuManager.m_bMenuActive)) {
+#ifdef LINUX_DUAL_SCREEN
+		if(BottomRadarCamera)
+			PresentBottomRadarCamera();
+#endif
 		return;
+	}
 
 	if(BottomRadarCamera == nil)
 		BottomRadarCamera = CreateBottomRadarCamera();
@@ -563,7 +590,7 @@ RenderBottomRadar(void)
 			DrawBottomFrontEndWorldMap();
 			RwCameraEndUpdate(BottomRadarCamera);
 		}
-		RwCameraShowRaster(BottomRadarCamera, nil, rwRASTERFLIPDONTWAIT);
+		PresentBottomRadarCamera();
 		return;
 	}
 	// A simple early return leaves the previous gameplay radar frozen on the
@@ -571,13 +598,13 @@ RenderBottomRadar(void)
 	// the cleared raster so location and player status cannot show through.
 	if(TheCamera.m_WideScreenOn || CCutsceneMgr::IsCutsceneProcessing() ||
 		!CHud::m_Wants_To_Draw_Hud) {
-		RwCameraShowRaster(BottomRadarCamera, nil, rwRASTERFLIPDONTWAIT);
+		PresentBottomRadarCamera();
 		return;
 	}
 
 	CPlayerPed *player = FindPlayerPed();
 	if(player == nil) {
-		RwCameraShowRaster(BottomRadarCamera, nil, rwRASTERFLIPDONTWAIT);
+		PresentBottomRadarCamera();
 		return;
 	}
 	if(!RwCameraBeginUpdate(BottomRadarCamera))
@@ -642,7 +669,7 @@ RenderBottomRadar(void)
 	}
 
 	RwCameraEndUpdate(BottomRadarCamera);
-	RwCameraShowRaster(BottomRadarCamera, nil, rwRASTERFLIPDONTWAIT);
+	PresentBottomRadarCamera();
 }
 }
 
@@ -724,7 +751,7 @@ ValidateVersion()
 	int32 file = CFileMgr::OpenFile("models\\coll\\peds.col", "rb");
 	char buff[128];
 
-	if ( file != -1 )
+	if ( file )
 	{
 		CFileMgr::Seek(file, 100, SEEK_SET);
 		
@@ -745,6 +772,12 @@ ValidateVersion()
 		}
 	}
 
+#ifndef _WIN32
+	printf("Could not find game data (models/coll/peds.col).\n"
+	       "Run this binary from a directory that contains the original PC game files.\n");
+	fflush(stdout);
+	_Exit(1);
+#endif
 	LoadingScreen("Invalid version", NULL, NULL);
 	
 	while(true)
@@ -2413,6 +2446,9 @@ AppEventHandler(RsEvent event, void *param)
 											
 			CameraSize(Scene.camera, (RwRect *)param,
 				SCREEN_VIEWWINDOW, DEFAULT_ASPECT_RATIO);
+#ifdef LINUX_DUAL_SCREEN
+			psApplyDualScreenTopCamera(Scene.camera);
+#endif
 			
 			return rsEVENTPROCESSED;
 		}

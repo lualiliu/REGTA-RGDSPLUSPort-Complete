@@ -482,8 +482,13 @@ Texture::streamReadNative(Stream *stream)
 		return xbox::readNativeTexture(stream);
 	if(platform == PLATFORM_GL3)
 		return gl3::readNativeTexture(stream);
-	if(platform == PLATFORM_3DS)
+	if(platform == PLATFORM_3DS){
+#ifdef RW_3DS
 		return c3d::readNativeTexture(stream);
+#else
+		return c3d::readNativeTextureHost(stream);
+#endif
+	}
 	assert(0 && "unsupported platform");
 	return nil;
 }
@@ -501,8 +506,10 @@ Texture::streamWriteNative(Stream *stream)
 		xbox::writeNativeTexture(this, stream);
 	else if(this->raster->platform == PLATFORM_GL3)
 		gl3::writeNativeTexture(this, stream);
+#ifdef RW_3DS
 	else if(this->raster->platform == PLATFORM_3DS)
 		c3d::writeNativeTexture(this, stream);
+#endif
 	else
 		assert(0 && "unsupported platform");
 }
@@ -520,8 +527,10 @@ Texture::streamGetSizeNative(void)
 		return xbox::getSizeNativeTexture(this);
 	if(this->raster->platform == PLATFORM_GL3)
 		return gl3::getSizeNativeTexture(this);
+#ifdef RW_3DS
 	if(this->raster->platform == PLATFORM_3DS)
 		return c3d::getSizeNativeTexture(this);
+#endif
 	assert(0 && "unsupported platform");
 	return 0;
 }

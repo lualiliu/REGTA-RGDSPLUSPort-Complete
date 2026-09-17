@@ -117,8 +117,9 @@ fit the console's memory and the formats supported by the port. Desktop ASI
 plugins, CLEO scripts and binary patches do not work; code changes need to be
 integrated into the source and rebuilt.
 
-The inherited desktop build files are still present, but the instructions here
-describe the New 3DS build.
+Linux dual-screen (GLFW) and Anbernic RG DS Plus (GLES + SDL2) builds for this
+game are documented in the [main README](../README.md). The rest of this file
+covers the New 3DS build.
 
 ## Credits
 

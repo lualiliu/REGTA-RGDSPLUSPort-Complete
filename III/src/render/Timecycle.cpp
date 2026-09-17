@@ -266,6 +266,11 @@ CTimeCycle::Update(void)
 	m_nCurrentLightShadowStrength = INTERP(m_nLightShadowStrength);
 	m_nCurrentTreeShadowStrength = INTERP(m_nTreeShadowStrength);
 	m_fCurrentFarClip = INTERP(m_fFarClip);
+#ifdef RGDS_PLUS
+	m_fCurrentFarClip *= 0.55f;
+#elif defined(LOWEND_GPU)
+	m_fCurrentFarClip *= 0.7f;
+#endif
 	m_fCurrentFogStart = INTERP(m_fFogStart);
 	m_fCurrentLightsOnGroundBrightness = INTERP(m_fLightsOnGroundBrightness);
 

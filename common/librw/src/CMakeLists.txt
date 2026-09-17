@@ -79,6 +79,10 @@ add_library(librw
     gl/rwwdgl.h
     gl/wdgl.cpp
 
+    3ds/3dstexhost.cpp
+    3ds/tex/rg_etc1.h
+    3ds/tex/rg_etc1.cpp
+
     lodepng/lodepng.h
     lodepng/lodepng.cpp
 
@@ -145,15 +149,34 @@ set_target_properties(librw
 )
 
 if(LIBRW_PLATFORM_GL3)
-    set(OpenGL_GL_PREFERENCE GLVND)
-    find_package(OpenGL REQUIRED)
-    find_package(GLEW REQUIRED)
+    if(LIBRW_GLES)
+        target_compile_definitions(librw PUBLIC RW_GLES3)
+        find_path(GLES3_INCLUDE_DIR GLES3/gl3.h)
+        if(GLES3_INCLUDE_DIR)
+            target_include_directories(librw PUBLIC ${GLES3_INCLUDE_DIR})
+        endif()
+        find_library(GLESV2_LIBRARY GLESv2 REQUIRED)
+        find_library(EGL_LIBRARY EGL REQUIRED)
+        find_library(MALI_LIBRARY mali)
+        target_link_libraries(librw
+            PUBLIC
+                ${GLESV2_LIBRARY}
+                ${EGL_LIBRARY}
+        )
+        if(MALI_LIBRARY)
+            target_link_libraries(librw PUBLIC ${MALI_LIBRARY})
+        endif()
+    else()
+        set(OpenGL_GL_PREFERENCE GLVND)
+        find_package(OpenGL REQUIRED)
+        find_package(GLEW REQUIRED)
 
-    target_link_libraries(librw
-        PUBLIC
-            OpenGL::GL
-            GLEW::GLEW
-    )
+        target_link_libraries(librw
+            PUBLIC
+                OpenGL::GL
+                GLEW::GLEW
+        )
+    endif()
     if (LIBRW_GL3_GFXLIB STREQUAL "GLFW")
         find_package(glfw3 REQUIRED)
         target_link_libraries(librw

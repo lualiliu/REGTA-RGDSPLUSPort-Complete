@@ -44,7 +44,7 @@
 #define LCS_MENU_MAP_Y_OFFSET 81.9969575f
 #endif
 
-#if defined(_3DS) && defined(ENABLE_3DS_BOTTOM_RADAR)
+#ifdef ENABLE_3DS_BOTTOM_RADAR
 /* Hardware-tested registration of the native LCS atlas on the lower screen.
  * The pause map uses this same rectangle as its coordinate reference. */
 #define LCS_BOTTOM_MAP_LEFT (-14.55f)

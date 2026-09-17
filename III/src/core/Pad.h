@@ -268,12 +268,18 @@ public:
 	void AffectFromXinput(uint32 pad);
 #endif
 
+#ifdef ENABLE_3DS_BOTTOM_RADAR
+	static bool Is3DSTouchOverlayVisible();
+#if !defined(_3DS)
+	static void AffectFromLinuxTouch(int px, int py, bool down, bool pressed, bool released);
+	static void UpdateLinuxTouchIdle();
+	void ApplyLinuxTouchOverlay();
+#endif
+#endif
+
 #ifdef _3DS
 	void AffectFrom3DS();
 	bool Get3DSRifleFirstPersonAim();
-#ifdef ENABLE_3DS_BOTTOM_RADAR
-	static bool Is3DSTouchOverlayVisible();
-#endif
 #endif
 
 	// mouse

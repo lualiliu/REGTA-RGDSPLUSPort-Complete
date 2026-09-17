@@ -13,7 +13,7 @@
 #include "../rwanim.h"
 #include "../rwplugins.h"
 #ifdef RW_OPENGL
-#include <GL/glew.h>
+#include "gl3compat.h"
 #endif
 #include "rwgl3.h"
 #include "rwgl3shader.h"

@@ -252,8 +252,10 @@ destroyNativeData(void *object, int32 offset, int32 size)
 		return d3d9::destroyNativeData(object, offset, size);
 	if(geometry->instData->platform == PLATFORM_GL3)
 		return gl3::destroyNativeData(object, offset, size);
+#ifdef RW_3DS
 	if(geometry->instData->platform == PLATFORM_3DS)
 		return c3d::destroyNativeData(object, offset, size);
+#endif
 	return object;
 }
 

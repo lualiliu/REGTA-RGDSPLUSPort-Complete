@@ -67,6 +67,16 @@ CText::Load(void)
 	}
 
 	file = CFileMgr::OpenFile(filename, "rb");
+	if(!file){
+#ifndef _WIN32
+		printf("Could not find game data (TEXT/%s).\n"
+		       "Run this binary from a directory that contains the original PC game files.\n", filename);
+		fflush(stdout);
+		_Exit(1);
+#endif
+		CFileMgr::SetDir("");
+		return;
+	}
 
 	offset = 0;
 	while (!tkey_loaded || !tdat_loaded) {

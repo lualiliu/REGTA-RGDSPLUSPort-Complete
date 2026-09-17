@@ -380,6 +380,10 @@ void LoadINIControllerSettings()
 				}
 				if (contType == -1)
 					continue;
+#ifdef RGDS_PLUS
+				if (contType == JOYSTICK)
+					continue;
+#endif
 
 				int contKey;
 				if (contType == JOYSTICK) {
@@ -412,6 +416,9 @@ void LoadINIControllerSettings()
 			}
 		}
 	}
+#ifdef RGDS_PLUS
+	ControlsManager.InitRgdsPspJoyPad();
+#endif
 }
 
 void SaveINIControllerSettings()
@@ -425,6 +432,10 @@ void SaveINIControllerSettings()
 			// We respect the m_ContSetOrder, and join/implode/order the bindings according to that; using comma as seperator.
 			for (int32 k = 0; k < MAX_CONTROLLERTYPES; k++){
 				if (ControlsManager.m_aSettings[i][k].m_ContSetOrder == j) {
+#ifdef RGDS_PLUS
+					if (k == JOYSTICK)
+						continue;
+#endif
 					char next[32];
 					if (k == JOYSTICK) {
 						snprintf(next, 32, "%s%d,", iniControllerTypes[k], ControlsManager.m_aSettings[i][k].m_Key);

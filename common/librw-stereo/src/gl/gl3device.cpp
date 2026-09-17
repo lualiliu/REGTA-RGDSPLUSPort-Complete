@@ -1267,6 +1267,43 @@ setFrameBuffer(Camera *cam)
 }
 
 static void
+setCameraViewport(Camera *cam)
+{
+	int w, h;
+	int x, y;
+	Raster *fb = cam->frameBuffer->parent;
+	if(fb->type == Raster::CAMERA){
+#ifdef LIBRW_SDL2
+		SDL_GetWindowSize(glGlobals.window, &w, &h);
+#else
+		glfwGetWindowSize(glGlobals.window, &w, &h);
+#endif
+	}else{
+		w = fb->width;
+		h = fb->height;
+	}
+	x = 0;
+	y = 0;
+
+	// Got a subraster
+	if(cam->frameBuffer != fb){
+		x = cam->frameBuffer->offsetX;
+		// GL y offset is from bottom
+		y = h - cam->frameBuffer->height - cam->frameBuffer->offsetY;
+		w = cam->frameBuffer->width;
+		h = cam->frameBuffer->height;
+	}
+
+	glViewport(x, y, w, h);
+	glEnable(GL_SCISSOR_TEST);
+	glScissor(x, y, w, h);
+	glGlobals.presentWidth = w;
+	glGlobals.presentHeight = h;
+	glGlobals.presentOffX = x;
+	glGlobals.presentOffY = y;
+}
+
+static void
 beginUpdate(Camera *cam)
 {
 	float view[16], proj[16];
@@ -1341,40 +1378,7 @@ beginUpdate(Camera *cam)
 	}
 
 	setFrameBuffer(cam);
-
-	int w, h;
-	int x, y;
-	Raster *fb = cam->frameBuffer->parent;
-	if(fb->type == Raster::CAMERA){
-#ifdef LIBRW_SDL2
-		SDL_GetWindowSize(glGlobals.window, &w, &h);
-#else
-		glfwGetWindowSize(glGlobals.window, &w, &h);
-#endif
-	}else{
-		w = fb->width;
-		h = fb->height;
-	}
-	x = 0;
-	y = 0;
-
-	// Got a subraster
-	if(cam->frameBuffer != fb){
-		x = cam->frameBuffer->offsetX;
-		// GL y offset is from bottom
-		y = h - cam->frameBuffer->height - cam->frameBuffer->offsetY;
-		w = cam->frameBuffer->width;
-		h = cam->frameBuffer->height;
-	}
-
-	if(w != glGlobals.presentWidth || h != glGlobals.presentHeight ||
-	   x != glGlobals.presentOffX || y != glGlobals.presentOffY){
-		glViewport(x, y, w, h);
-		glGlobals.presentWidth = w;
-		glGlobals.presentHeight = h;
-		glGlobals.presentOffX = x;
-		glGlobals.presentOffY = y;
-	}
+	setCameraViewport(cam);
 }
 
 static void
@@ -1389,6 +1393,7 @@ clearCamera(Camera *cam, RGBA *col, uint32 mode)
 	GLbitfield mask;
 
 	setFrameBuffer(cam);
+	setCameraViewport(cam);
 
 	convColor(&colf, col);
 	glClearColor(colf.red, colf.green, colf.blue, colf.alpha);
@@ -1420,6 +1425,33 @@ showRaster(Raster *raster, uint32 flags)
 	else
 		glfwSwapInterval(0);
 	glfwSwapBuffers(glGlobals.window);
+#endif
+}
+
+void
+blitRasterToWindow(Raster *raster, int32 destX, int32 destY, int32 destW, int32 destH)
+{
+#ifdef RW_OPENGL
+	if(raster == nil || destW <= 0 || destH <= 0)
+		return;
+	Raster *fb = raster->parent;
+	Gl3Raster *natfb = GETGL3RASTEREXT(fb);
+	if(natfb == nil || natfb->fbo == 0)
+		return;
+	int winw = 0, winh = 0;
+#ifdef LIBRW_SDL2
+	SDL_GetWindowSize(glGlobals.window, &winw, &winh);
+#else
+	glfwGetWindowSize(glGlobals.window, &winw, &winh);
+#endif
+	int gy = winh - destY - destH;
+	glDisable(GL_SCISSOR_TEST);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, natfb->fbo);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+	glBlitFramebuffer(0, 0, fb->width, fb->height,
+		destX, gy, destX + destW, gy + destH,
+		GL_COLOR_BUFFER_BIT, GL_LINEAR);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #endif
 }
 

@@ -132,6 +132,180 @@ CPad::Is3DSTouchOverlayVisible()
 #endif
 #endif
 
+#if defined(ENABLE_3DS_BOTTOM_RADAR) && !defined(_3DS)
+#include <time.h>
+
+namespace {
+enum eLinuxTouchZone {
+	TOUCH_ZONE_NONE,
+	TOUCH_ZONE_L3,
+	TOUCH_ZONE_R3,
+	TOUCH_ZONE_CAMERA
+};
+
+static bool g3DSTouchOverlayVisible;
+static bool g3DSTouchOverlayArmed;
+static eLinuxTouchZone g3DSTouchActiveZone = TOUCH_ZONE_NONE;
+static uint64 g3DSTouchLastActivityMs;
+static int g3DSTouchCameraDX;
+static int g3DSTouchCameraDY;
+static int g3DSTouchPrevX;
+static int g3DSTouchPrevY;
+static bool g3DSTouchDown;
+#ifdef RGDS_PLUS
+static int gLinuxTouchOriginX;
+static int gLinuxTouchOriginY;
+static int gLinuxTouchLookX;
+static int gLinuxTouchLookY;
+#endif
+
+static uint64
+LinuxNowMs(void)
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (uint64)ts.tv_sec * 1000ull + (uint64)ts.tv_nsec / 1000000ull;
+}
+
+#ifdef RGDS_PLUS
+static int
+LinuxTouchStickAxis(int delta)
+{
+	const int dead = 10;
+	const int range = 70;
+	if (delta > dead)
+		return clamp((delta - dead) * 128 / range, 0, 128);
+	if (delta < -dead)
+		return clamp((delta + dead) * 128 / range, -128, 0);
+	return 0;
+}
+#endif
+
+static eLinuxTouchZone
+GetLinuxTouchZone(int px, int py)
+{
+	if(px >= 23 && px < 148 && py >= 26 && py < 105)
+		return TOUCH_ZONE_L3;
+	if(px >= 173 && px < 299 && py >= 26 && py < 105)
+		return TOUCH_ZONE_R3;
+	if(px >= 28 && px < 293 && py >= 119 && py < 222)
+		return TOUCH_ZONE_CAMERA;
+	return TOUCH_ZONE_NONE;
+}
+}
+
+bool
+CPad::Is3DSTouchOverlayVisible()
+{
+#ifdef RGDS_PLUS
+	return true;
+#else
+	return g3DSTouchOverlayVisible;
+#endif
+}
+
+void
+CPad::AffectFromLinuxTouch(int px, int py, bool down, bool pressed, bool released)
+{
+	uint64 now = LinuxNowMs();
+	g3DSTouchCameraDX = 0;
+	g3DSTouchCameraDY = 0;
+	if(pressed) {
+		g3DSTouchPrevX = px;
+		g3DSTouchPrevY = py;
+		g3DSTouchLastActivityMs = now;
+		g3DSTouchDown = true;
+#ifdef RGDS_PLUS
+		gLinuxTouchOriginX = px;
+		gLinuxTouchOriginY = py;
+		gLinuxTouchLookX = 0;
+		gLinuxTouchLookY = 0;
+#endif
+		if(!g3DSTouchOverlayVisible) {
+			g3DSTouchOverlayVisible = true;
+			g3DSTouchOverlayArmed = false;
+			g3DSTouchActiveZone = TOUCH_ZONE_NONE;
+		} else if(g3DSTouchOverlayArmed) {
+			g3DSTouchActiveZone = GetLinuxTouchZone(px, py);
+		}
+	} else if(released) {
+		if(g3DSTouchOverlayVisible)
+			g3DSTouchOverlayArmed = true;
+		g3DSTouchActiveZone = TOUCH_ZONE_NONE;
+		g3DSTouchDown = false;
+		g3DSTouchLastActivityMs = now;
+#ifdef RGDS_PLUS
+		gLinuxTouchLookX = 0;
+		gLinuxTouchLookY = 0;
+#endif
+	} else if(down) {
+		g3DSTouchLastActivityMs = now;
+#ifdef RGDS_PLUS
+		if(!g3DSTouchDown) {
+			g3DSTouchPrevX = px;
+			g3DSTouchPrevY = py;
+			gLinuxTouchOriginX = px;
+			gLinuxTouchOriginY = py;
+			gLinuxTouchLookX = 0;
+			gLinuxTouchLookY = 0;
+			g3DSTouchDown = true;
+		} else {
+			gLinuxTouchLookX = LinuxTouchStickAxis(px - gLinuxTouchOriginX);
+			gLinuxTouchLookY = LinuxTouchStickAxis(py - gLinuxTouchOriginY);
+			g3DSTouchPrevX = px;
+			g3DSTouchPrevY = py;
+		}
+#else
+		g3DSTouchDown = true;
+		if(g3DSTouchOverlayArmed && g3DSTouchActiveZone == TOUCH_ZONE_CAMERA) {
+			g3DSTouchCameraDX = px - g3DSTouchPrevX;
+			g3DSTouchCameraDY = py - g3DSTouchPrevY;
+			g3DSTouchPrevX = px;
+			g3DSTouchPrevY = py;
+		}
+#endif
+	}
+}
+
+void
+CPad::UpdateLinuxTouchIdle()
+{
+#ifdef RGDS_PLUS
+	return;
+#endif
+	if(g3DSTouchOverlayVisible && !g3DSTouchDown &&
+	   LinuxNowMs() - g3DSTouchLastActivityMs >= 5000) {
+		g3DSTouchOverlayVisible = false;
+		g3DSTouchOverlayArmed = false;
+		g3DSTouchActiveZone = TOUCH_ZONE_NONE;
+	}
+}
+
+void
+CPad::ApplyLinuxTouchOverlay()
+{
+#ifdef RGDS_PLUS
+	if(g3DSTouchDown) {
+		PCTempJoyState.RightStickX = gLinuxTouchLookX;
+		PCTempJoyState.RightStickY = gLinuxTouchLookY;
+		NewState.RightStickX = gLinuxTouchLookX;
+		NewState.RightStickY = gLinuxTouchLookY;
+	}
+	return;
+#endif
+	if(!g3DSTouchOverlayArmed || !g3DSTouchDown)
+		return;
+	if(g3DSTouchActiveZone == TOUCH_ZONE_L3)
+		PCTempJoyState.LeftShock = 255;
+	if(g3DSTouchActiveZone == TOUCH_ZONE_R3)
+		PCTempJoyState.RightShock = 255;
+	if(g3DSTouchActiveZone == TOUCH_ZONE_CAMERA) {
+		PCTempJoyState.RightStickX = clamp(g3DSTouchCameraDX * 12, -128, 128);
+		PCTempJoyState.RightStickY = clamp(g3DSTouchCameraDY * 12, -128, 128);
+	}
+}
+#endif
+
 #ifdef DETECT_PAD_INPUT_SWITCH
 bool CPad::IsAffectedByController = false;
 #endif
@@ -647,7 +821,7 @@ void CPad::UpdateMouse()
 			NewMouseControllerState = PCTempMouseControllerState;
 		}
 	}
-#elif defined (GLFW)
+#elif defined(RW_GL3)
 	if ( IsForegroundApp() && PSGLOBAL(cursorIsInWindow) )
 	{
 		double xpos = 1.0f, ypos;
@@ -1328,6 +1502,12 @@ void CPad::UpdatePads(void)
 	CapturePad(0);
 #elif defined (_3DS)
 	GetPad(0)->AffectFrom3DS();
+#elif defined(RW_GL3)
+	CapturePad(0);
+	CapturePad(1);
+#if defined(ENABLE_3DS_BOTTOM_RADAR)
+	GetPad(0)->ApplyLinuxTouchOverlay();
+#endif
 #endif
 
 	// Improve keyboard input latency part 1
@@ -1356,6 +1536,9 @@ void CPad::UpdatePads(void)
 
 	if ( bUpdate )
 		GetPad(0)->Update(0);
+#if defined(RGDS_PLUS) && defined(ENABLE_3DS_BOTTOM_RADAR)
+	GetPad(0)->ApplyLinuxTouchOverlay();
+#endif
 
 #ifndef MASTER
 	GetPad(1)->Update(1);
@@ -2928,10 +3111,17 @@ int16 CPad::SniperModeLookUpDown(void)
 int16 CPad::LookAroundLeftRight(void)
 {
 	float axis = GetPad(0)->NewState.RightStickX;
+#ifdef RGDS_PLUS
+	const int16 deadzone = 10;
+	const float scale = 127.0f / 64.0f;
+#else
+	const int16 deadzone = 85;
+	const float scale = 127.0f / 32.0f;
+#endif
 
-	if ( Abs(axis) > 85 && !GetLookBehindForPed() )
-		return (int16) ( (axis + ( ( axis > 0 ) ? -85 : 85) )
-							* (127.0f / 32.0f) ); // 3.96875f
+	if ( Abs(axis) > deadzone && !GetLookBehindForPed() )
+		return (int16) ( (axis + ( ( axis > 0 ) ? -deadzone : deadzone) )
+							* scale );
 
 	else if ( TheCamera.Cams[0].Using3rdPersonMouseCam() && Abs(axis) > 10 )
 		return (int16) ( (axis + ( ( axis > 0 ) ? -10 : 10) )
@@ -2951,10 +3141,17 @@ int16 CPad::LookAroundUpDown(void)
 	if (CPad::bInvertLook4Pad)
 		axis = -axis;
 #endif
+#ifdef RGDS_PLUS
+	const int16 deadzone = 10;
+	const float scale = 127.0f / 64.0f;
+#else
+	const int16 deadzone = 85;
+	const float scale = 127.0f / 32.0f;
+#endif
 
-	if ( Abs(axis) > 85 && !GetLookBehindForPed() )
-		return (int16) ( (axis + ( ( axis > 0 ) ? -85 : 85) )
-							* (127.0f / 32.0f) ); // 3.96875f
+	if ( Abs(axis) > deadzone && !GetLookBehindForPed() )
+		return (int16) ( (axis + ( ( axis > 0 ) ? -deadzone : deadzone) )
+							* scale );
 
 	else if ( TheCamera.Cams[0].Using3rdPersonMouseCam() && Abs(axis) > 40 )
 		return (int16) ( (axis + ( ( axis > 0 ) ? -40 : 40) )

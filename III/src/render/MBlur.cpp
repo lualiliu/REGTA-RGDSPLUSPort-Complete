@@ -27,9 +27,9 @@ extern "C" D3DCAPS8 _RwD3D8DeviceCaps;
 RwBool
 CMBlur::MotionBlurOpen(RwCamera *cam)
 {
-#ifdef _3DS
+#ifdef LOWEND_GPU
 	// Keep the cheap PS2 colour wash but never allocate/copy the previous-frame
-	// texture on 3DS.  Temporal trails cost a full-screen copy plus overlay.
+	// texture. Temporal trails cost a full-screen copy plus overlay.
 	BlurOn = false;
 #endif
 #ifdef EXTENDED_COLOURFILTER

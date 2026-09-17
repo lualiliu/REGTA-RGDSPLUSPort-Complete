@@ -1,4 +1,4 @@
-#if defined RW_GL3 && !defined LIBRW_SDL2
+#if defined RW_GL3
 
 #ifdef _WIN32
 #include <shlobj.h>
@@ -52,9 +52,13 @@ long _dwOperatingSystemVersion;
 
 #define MAX_SUBSYSTEMS		(16)
 
-#ifdef _WIN32
+#ifdef LIBRW_SDL2
+#include "glfw_sdl2.h"
+#elif defined(_WIN32)
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
+#else
+#include <GLFW/glfw3.h>
 #endif
 
 
@@ -186,6 +190,10 @@ psCameraBeginUpdate(RwCamera *camera)
 void
 psCameraShowRaster(RwCamera *camera)
 {
+#ifdef RGDS_PLUS
+	psBlitRasterToWindow(RwCameraGetRaster(camera),
+		0, 0, LINUX_TOP_SCREEN_WIDTH, LINUX_TOP_SCREEN_HEIGHT);
+#endif
 	if (CMenuManager::m_PrefsVsync)
 		RwCameraShowRaster(camera, PSGLOBAL(window), rwRASTERFLIPWAITVSYNC);
 	else
@@ -193,6 +201,109 @@ psCameraShowRaster(RwCamera *camera)
 
 	return;
 }
+
+#ifdef LINUX_DUAL_SCREEN
+namespace rw {
+namespace gl3 {
+void blitRasterToWindow(Raster *raster, int32 destX, int32 destY, int32 destW, int32 destH);
+}
+}
+
+void
+psBlitRasterToWindow(RwRaster *raster, RwInt32 x, RwInt32 y, RwInt32 w, RwInt32 h)
+{
+	rw::gl3::blitRasterToWindow(raster, x, y, w, h);
+}
+
+void
+psApplyDualScreenTopCamera(RwCamera *camera)
+{
+	if(camera == nil)
+		return;
+
+#ifdef LINUX_DUAL_SCREEN_SEPARATE_WINDOWS
+	RsGlobal.width = LINUX_TOP_SCREEN_WIDTH;
+	RsGlobal.height = LINUX_TOP_SCREEN_HEIGHT;
+	RsGlobal.maximumWidth = LINUX_TOP_SCREEN_WIDTH;
+	RsGlobal.maximumHeight = LINUX_TOP_SCREEN_HEIGHT;
+	(void)camera;
+	return;
+#elif defined(RGDS_PLUS)
+	RwRaster *fb = RwCameraGetRaster(camera);
+	if(fb && RwRasterGetWidth(fb) == LINUX_CAMERA_WIDTH &&
+	   RwRasterGetHeight(fb) == LINUX_CAMERA_HEIGHT &&
+	   (RwRasterGetType(fb) & rwRASTERTYPEMASK) == rwRASTERTYPECAMERATEXTURE)
+		return;
+
+	RwRaster *oldFb = RwCameraGetRaster(camera);
+	RwRaster *oldZ = RwCameraGetZRaster(camera);
+	RwRaster *newFb = RwRasterCreate(LINUX_CAMERA_WIDTH, LINUX_CAMERA_HEIGHT, 32,
+		rwRASTERTYPECAMERATEXTURE | rwRASTERFORMAT8888);
+	RwRaster *newZ = RwRasterCreate(LINUX_CAMERA_WIDTH, LINUX_CAMERA_HEIGHT, 0, rwRASTERTYPEZBUFFER);
+	if(newFb == nil || newZ == nil) {
+		if(newFb) RwRasterDestroy(newFb);
+		if(newZ) RwRasterDestroy(newZ);
+		return;
+	}
+	RwCameraSetRaster(camera, newFb);
+	RwCameraSetZRaster(camera, newZ);
+	if(oldFb) RwRasterDestroy(oldFb);
+	if(oldZ) RwRasterDestroy(oldZ);
+
+	RsGlobal.width = LINUX_CAMERA_WIDTH;
+	RsGlobal.height = LINUX_CAMERA_HEIGHT;
+	RsGlobal.maximumWidth = LINUX_CAMERA_WIDTH;
+	RsGlobal.maximumHeight = LINUX_CAMERA_HEIGHT;
+	printf("RGDS: internal camera %dx%d CAMERATEXTURE\n",
+		LINUX_CAMERA_WIDTH, LINUX_CAMERA_HEIGHT);
+	return;
+#else
+	RwRaster *fb = RwCameraGetRaster(camera);
+	if(fb && fb != RwRasterGetParent(fb) &&
+	   RwRasterGetWidth(fb) == LINUX_TOP_SCREEN_WIDTH &&
+	   RwRasterGetWidth(RwRasterGetParent(fb)) == LINUX_WINDOW_WIDTH)
+		return;
+
+	RwRaster *oldFb = RwCameraGetRaster(camera);
+	RwRaster *oldZ = RwCameraGetZRaster(camera);
+	RwRaster *parentFb = RwRasterCreate(LINUX_WINDOW_WIDTH, LINUX_WINDOW_HEIGHT, 0, rwRASTERTYPECAMERA);
+	RwRaster *parentZ = RwRasterCreate(LINUX_WINDOW_WIDTH, LINUX_WINDOW_HEIGHT, 0, rwRASTERTYPEZBUFFER);
+	RwRaster *subFb = RwRasterCreate(0, 0, 0, rwRASTERTYPECAMERA | rwRASTERDONTALLOCATE);
+	RwRaster *subZ = RwRasterCreate(0, 0, 0, rwRASTERTYPEZBUFFER | rwRASTERDONTALLOCATE);
+	if(parentFb == nil || parentZ == nil || subFb == nil || subZ == nil) {
+		if(parentFb) RwRasterDestroy(parentFb);
+		if(parentZ) RwRasterDestroy(parentZ);
+		if(subFb) RwRasterDestroy(subFb);
+		if(subZ) RwRasterDestroy(subZ);
+		return;
+	}
+
+	RwRect top;
+	top.x = 0;
+	top.y = 0;
+	top.w = LINUX_TOP_SCREEN_WIDTH;
+	top.h = LINUX_TOP_SCREEN_HEIGHT;
+	if(RwRasterSubRaster(subFb, parentFb, &top) == nil ||
+	   RwRasterSubRaster(subZ, parentZ, &top) == nil) {
+		RwRasterDestroy(subFb);
+		RwRasterDestroy(subZ);
+		RwRasterDestroy(parentFb);
+		RwRasterDestroy(parentZ);
+		return;
+	}
+
+	RwCameraSetRaster(camera, subFb);
+	RwCameraSetZRaster(camera, subZ);
+	if(oldFb) RwRasterDestroy(oldFb);
+	if(oldZ) RwRasterDestroy(oldZ);
+
+	RsGlobal.width = LINUX_TOP_SCREEN_WIDTH;
+	RsGlobal.height = LINUX_TOP_SCREEN_HEIGHT;
+	RsGlobal.maximumWidth = LINUX_TOP_SCREEN_WIDTH;
+	RsGlobal.maximumHeight = LINUX_TOP_SCREEN_HEIGHT;
+#endif
+}
+#endif
 
 /*
  *****************************************************************************
@@ -209,9 +320,10 @@ psGrabScreen(RwCamera *pCamera)
 	}
 #else
 	rw::Image *image = RwCameraGetRaster(pCamera)->toImage();
+	if(image == nil)
+		return nil;
 	image->removeMask();
-	if(image)
-		return image;
+	return image;
 #endif
 	return nil;
 }
@@ -693,11 +805,10 @@ psSelectDevice()
 		else
 		{
 #ifdef DEFAULT_NATIVE_RESOLUTION
-			// get the native video mode
-			HDC hDevice = GetDC(NULL);
-			int w = GetDeviceCaps(hDevice, HORZRES);
-			int h = GetDeviceCaps(hDevice, VERTRES);
-			int d = GetDeviceCaps(hDevice, BITSPIXEL);
+			const GLFWvidmode *nativeMode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+			const int w = nativeMode ? nativeMode->width : 640;
+			const int h = nativeMode ? nativeMode->height : 480;
+			const int d = nativeMode ? nativeMode->redBits + nativeMode->greenBits + nativeMode->blueBits : 32;
 #else
 			const int w = 640;
 			const int h = 480;
@@ -835,6 +946,25 @@ psSelectDevice()
 #ifdef MULTISAMPLING
 	RwD3D8EngineSetMultiSamplingLevels(1 << FrontEndMenuManager.m_nPrefsMSAALevel);
 #endif
+#ifdef LINUX_DUAL_SCREEN
+	{
+		RwVideoMode windowed;
+		for(RwInt32 i = 0; i < RwEngineGetNumVideoModes(); i++) {
+			RwEngineGetVideoModeInfo(&windowed, i);
+			if(!(windowed.flags & rwVIDEOMODEEXCLUSIVE)) {
+				GcurSelVM = i;
+				break;
+			}
+		}
+		if(!RwEngineSetVideoMode(GcurSelVM))
+			return FALSE;
+		RsGlobal.maximumWidth = LINUX_CAMERA_WIDTH;
+		RsGlobal.maximumHeight = LINUX_CAMERA_HEIGHT;
+		RsGlobal.width = LINUX_CAMERA_WIDTH;
+		RsGlobal.height = LINUX_CAMERA_HEIGHT;
+		PSGLOBAL(fullScreen) = FALSE;
+	}
+#endif
 	return TRUE;
 }
 
@@ -922,6 +1052,7 @@ void _InputInitialiseJoys()
 long _InputInitialiseMouse()
 {
 	glfwSetInputMode(PSGLOBAL(window), GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+	PSGLOBAL(cursorIsInWindow) = TRUE;
 	return 0;
 }
 
@@ -941,7 +1072,20 @@ void psPostRWinit(void)
 	_InputInitialiseMouse();
 
 	if(!(vm.flags & rwVIDEOMODEEXCLUSIVE))
+#ifdef LINUX_DUAL_SCREEN_SEPARATE_WINDOWS
+		;
+#elif defined(LINUX_DUAL_SCREEN)
+		glfwSetWindowSize(PSGLOBAL(window), LINUX_WINDOW_WIDTH, LINUX_WINDOW_HEIGHT);
+#else
 		glfwSetWindowSize(PSGLOBAL(window), RsGlobal.maximumWidth, RsGlobal.maximumHeight);
+#endif
+#ifdef LINUX_DUAL_SCREEN
+#ifndef LINUX_DUAL_SCREEN_SEPARATE_WINDOWS
+	glfwSetWindowAttrib(PSGLOBAL(window), GLFW_RESIZABLE, GLFW_FALSE);
+	glfwSetWindowSizeLimits(PSGLOBAL(window), LINUX_WINDOW_WIDTH, LINUX_WINDOW_HEIGHT,
+		LINUX_WINDOW_WIDTH, LINUX_WINDOW_HEIGHT);
+#endif
+#endif
 
 	// Make sure all keys are released
 	CPad::GetPad(0)->Clear(true);
@@ -1268,6 +1412,18 @@ void resizeCB(GLFWwindow* window, int width, int height) {
 	if (RwInitialised && height > 0 && width > 0) {
 		RwRect r;
 
+#ifdef LINUX_DUAL_SCREEN
+#ifndef LINUX_DUAL_SCREEN_SEPARATE_WINDOWS
+		if(width != LINUX_WINDOW_WIDTH || height != LINUX_WINDOW_HEIGHT)
+			glfwSetWindowSize(window, LINUX_WINDOW_WIDTH, LINUX_WINDOW_HEIGHT);
+#endif
+		RsGlobal.maximumWidth = LINUX_CAMERA_WIDTH;
+		RsGlobal.maximumHeight = LINUX_CAMERA_HEIGHT;
+		r.x = 0;
+		r.y = 0;
+		r.w = LINUX_CAMERA_WIDTH;
+		r.h = LINUX_CAMERA_HEIGHT;
+#else
 		// TODO fix artifacts of resizing with mouse
 		RsGlobal.maximumHeight = height;
 		RsGlobal.maximumWidth = width;
@@ -1276,6 +1432,7 @@ void resizeCB(GLFWwindow* window, int width, int height) {
 		r.y = 0;
 		r.w = width;
 		r.h = height;
+#endif
 
 		RsEventHandler(rsCAMERASIZE, &r);
 	}
@@ -1451,8 +1608,15 @@ cursorCB(GLFWwindow* window, double xpos, double ypos) {
 	
 	int winw, winh;
 	glfwGetWindowSize(PSGLOBAL(window), &winw, &winh);
-	FrontEndMenuManager.m_nMouseTempPosX = xpos * (RsGlobal.maximumWidth / winw);
-	FrontEndMenuManager.m_nMouseTempPosY = ypos * (RsGlobal.maximumHeight / winh);
+#ifdef LINUX_DUAL_SCREEN
+	FrontEndMenuManager.m_nMouseTempPosX = xpos;
+	FrontEndMenuManager.m_nMouseTempPosY = ypos;
+	(void)winw;
+	(void)winh;
+#else
+	FrontEndMenuManager.m_nMouseTempPosX = xpos * (RsGlobal.maximumWidth / (float)winw);
+	FrontEndMenuManager.m_nMouseTempPosY = ypos * (RsGlobal.maximumHeight / (float)winh);
+#endif
 }
 
 void
@@ -1549,6 +1713,10 @@ main(int argc, char *argv[])
 
 	openParams.width = RsGlobal.maximumWidth;
 	openParams.height = RsGlobal.maximumHeight;
+#ifdef LINUX_DUAL_SCREEN
+	openParams.width = LINUX_WINDOW_WIDTH;
+	openParams.height = LINUX_WINDOW_HEIGHT;
+#endif
 	openParams.windowtitle = RsGlobal.appName;
 	openParams.window = &PSGLOBAL(window);
 	
@@ -1597,8 +1765,13 @@ main(int argc, char *argv[])
 
 		r.x = 0;
 		r.y = 0;
+#ifdef LINUX_DUAL_SCREEN
+		r.w = LINUX_CAMERA_WIDTH;
+		r.h = LINUX_CAMERA_HEIGHT;
+#else
 		r.w = RsGlobal.maximumWidth;
 		r.h = RsGlobal.maximumHeight;
+#endif
 
 		RsEventHandler(rsCAMERASIZE, &r);
 	}
@@ -2125,9 +2298,14 @@ void CapturePad(RwInt32 padID)
 	if ( glfwPad != -1 ) {
 		leftStickPos.x = ControlsManager.m_NewState.isGamepad ? gamepadState.axes[GLFW_GAMEPAD_AXIS_LEFT_X] : numAxes >= 1 ? axes[0] : 0.0f;
 		leftStickPos.y = ControlsManager.m_NewState.isGamepad ? gamepadState.axes[GLFW_GAMEPAD_AXIS_LEFT_Y] : numAxes >= 2 ? axes[1] : 0.0f;
-
+#ifdef RGDS_PLUS
+		/* RG DS PLUS has no right analog. Look comes from the right-screen touch. */
+		rightStickPos.x = 0.0f;
+		rightStickPos.y = 0.0f;
+#else
 		rightStickPos.x = ControlsManager.m_NewState.isGamepad ? gamepadState.axes[GLFW_GAMEPAD_AXIS_RIGHT_X] : numAxes >= 3 ? axes[2] : 0.0f;
 		rightStickPos.y = ControlsManager.m_NewState.isGamepad ? gamepadState.axes[GLFW_GAMEPAD_AXIS_RIGHT_Y] : numAxes >= 4 ? axes[3] : 0.0f;
+#endif
 	}
 	
 	{
@@ -2144,17 +2322,32 @@ void CapturePad(RwInt32 padID)
 		
 		CPad *pad = CPad::GetPad(bs.padID);
 
+#ifdef RGDS_PLUS
+		if ( Abs(leftStickPos.x)  > 0.18f )
+			pad->PCTempJoyState.LeftStickX	= (int32)(leftStickPos.x  * 128.0f);
+		
+		if ( Abs(leftStickPos.y)  > 0.18f )
+			pad->PCTempJoyState.LeftStickY	= (int32)(leftStickPos.y  * 128.0f);
+#else
 		if ( Abs(leftStickPos.x)  > 0.3f )
 			pad->PCTempJoyState.LeftStickX	= (int32)(leftStickPos.x  * 128.0f);
 		
 		if ( Abs(leftStickPos.y)  > 0.3f )
 			pad->PCTempJoyState.LeftStickY	= (int32)(leftStickPos.y  * 128.0f);
-		
+#endif
+#ifdef RGDS_PLUS
+		if ( Abs(rightStickPos.x) > 0.12f )
+			pad->PCTempJoyState.RightStickX = (int32)(rightStickPos.x * 128.0f);
+
+		if ( Abs(rightStickPos.y) > 0.12f )
+			pad->PCTempJoyState.RightStickY = (int32)(rightStickPos.y * 128.0f);
+#else
 		if ( Abs(rightStickPos.x) > 0.3f )
 			pad->PCTempJoyState.RightStickX = (int32)(rightStickPos.x * 128.0f);
 
 		if ( Abs(rightStickPos.y) > 0.3f )
 			pad->PCTempJoyState.RightStickY = (int32)(rightStickPos.y * 128.0f);
+#endif
 	}
 	
 	return;

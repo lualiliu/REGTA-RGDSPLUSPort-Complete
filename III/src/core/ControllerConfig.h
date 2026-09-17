@@ -217,6 +217,9 @@ public:
 	int32 GetMouseButtonAssociatedWithAction  (e_ControllerAction action);
 	void  SetMouseButtonAssociatedWithAction  (e_ControllerAction action, int32 button);
 	void  ResetSettingOrder                   (e_ControllerAction action);
+#ifdef RGDS_PLUS
+	void InitRgdsPspJoyPad(void);
+#endif
 };
 
 #ifndef RW_GL3

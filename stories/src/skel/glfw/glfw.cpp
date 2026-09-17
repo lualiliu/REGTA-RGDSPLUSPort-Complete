@@ -63,6 +63,8 @@ long _dwOperatingSystemVersion;
 #ifdef _WIN32
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
+#else
+#include <GLFW/glfw3.h>
 #endif
 
 #define MAX_SUBSYSTEMS		(16)
@@ -208,6 +210,71 @@ psCameraShowRaster(RwCamera *camera)
 
 	return;
 }
+
+#ifdef LINUX_DUAL_SCREEN
+namespace rw {
+namespace gl3 {
+void blitRasterToWindow(Raster *raster, int32 destX, int32 destY, int32 destW, int32 destH);
+}
+}
+
+void
+psBlitRasterToWindow(RwRaster *raster, RwInt32 x, RwInt32 y, RwInt32 w, RwInt32 h)
+{
+	rw::gl3::blitRasterToWindow(raster, x, y, w, h);
+}
+
+void
+psApplyDualScreenTopCamera(RwCamera *camera)
+{
+	if(camera == nil)
+		return;
+
+	RwRaster *fb = RwCameraGetRaster(camera);
+	if(fb && fb != RwRasterGetParent(fb) &&
+	   RwRasterGetWidth(fb) == LINUX_TOP_SCREEN_WIDTH &&
+	   RwRasterGetWidth(RwRasterGetParent(fb)) == LINUX_WINDOW_WIDTH)
+		return;
+
+	RwRaster *oldFb = RwCameraGetRaster(camera);
+	RwRaster *oldZ = RwCameraGetZRaster(camera);
+	RwRaster *parentFb = RwRasterCreate(LINUX_WINDOW_WIDTH, LINUX_WINDOW_HEIGHT, 0, rwRASTERTYPECAMERA);
+	RwRaster *parentZ = RwRasterCreate(LINUX_WINDOW_WIDTH, LINUX_WINDOW_HEIGHT, 0, rwRASTERTYPEZBUFFER);
+	RwRaster *subFb = RwRasterCreate(0, 0, 0, rwRASTERTYPECAMERA | rwRASTERDONTALLOCATE);
+	RwRaster *subZ = RwRasterCreate(0, 0, 0, rwRASTERTYPEZBUFFER | rwRASTERDONTALLOCATE);
+	if(parentFb == nil || parentZ == nil || subFb == nil || subZ == nil) {
+		if(parentFb) RwRasterDestroy(parentFb);
+		if(parentZ) RwRasterDestroy(parentZ);
+		if(subFb) RwRasterDestroy(subFb);
+		if(subZ) RwRasterDestroy(subZ);
+		return;
+	}
+
+	RwRect top;
+	top.x = 0;
+	top.y = 0;
+	top.w = LINUX_TOP_SCREEN_WIDTH;
+	top.h = LINUX_TOP_SCREEN_HEIGHT;
+	if(RwRasterSubRaster(subFb, parentFb, &top) == nil ||
+	   RwRasterSubRaster(subZ, parentZ, &top) == nil) {
+		RwRasterDestroy(subFb);
+		RwRasterDestroy(subZ);
+		RwRasterDestroy(parentFb);
+		RwRasterDestroy(parentZ);
+		return;
+	}
+
+	RwCameraSetRaster(camera, subFb);
+	RwCameraSetZRaster(camera, subZ);
+	if(oldFb) RwRasterDestroy(oldFb);
+	if(oldZ) RwRasterDestroy(oldZ);
+
+	RsGlobal.width = LINUX_TOP_SCREEN_WIDTH;
+	RsGlobal.height = LINUX_TOP_SCREEN_HEIGHT;
+	RsGlobal.maximumWidth = LINUX_TOP_SCREEN_WIDTH;
+	RsGlobal.maximumHeight = LINUX_TOP_SCREEN_HEIGHT;
+}
+#endif
 
 /*
  *****************************************************************************
@@ -795,11 +862,10 @@ psSelectDevice()
 		else
 		{
 #ifdef DEFAULT_NATIVE_RESOLUTION
-			// get the native video mode
-			HDC hDevice = GetDC(NULL);
-			int w = GetDeviceCaps(hDevice, HORZRES);
-			int h = GetDeviceCaps(hDevice, VERTRES);
-			int d = GetDeviceCaps(hDevice, BITSPIXEL);
+			const GLFWvidmode *nativeMode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+			const int w = nativeMode ? nativeMode->width : 640;
+			const int h = nativeMode ? nativeMode->height : 480;
+			const int d = nativeMode ? nativeMode->redBits + nativeMode->greenBits + nativeMode->blueBits : 32;
 #else
 			const int w = 640;
 			const int h = 480;
@@ -936,6 +1002,25 @@ psSelectDevice()
 
 #ifdef MULTISAMPLING
 	RwD3D8EngineSetMultiSamplingLevels(1 << FrontEndMenuManager.m_nPrefsMSAALevel);
+#endif
+#ifdef LINUX_DUAL_SCREEN
+	{
+		RwVideoMode windowed;
+		for(RwInt32 i = 0; i < RwEngineGetNumVideoModes(); i++) {
+			RwEngineGetVideoModeInfo(&windowed, i);
+			if(!(windowed.flags & rwVIDEOMODEEXCLUSIVE)) {
+				GcurSelVM = i;
+				break;
+			}
+		}
+		if(!RwEngineSetVideoMode(GcurSelVM))
+			return FALSE;
+		RsGlobal.maximumWidth = LINUX_TOP_SCREEN_WIDTH;
+		RsGlobal.maximumHeight = LINUX_TOP_SCREEN_HEIGHT;
+		RsGlobal.width = LINUX_TOP_SCREEN_WIDTH;
+		RsGlobal.height = LINUX_TOP_SCREEN_HEIGHT;
+		PSGLOBAL(fullScreen) = FALSE;
+	}
 #endif
 	return TRUE;
 }
@@ -1074,7 +1159,16 @@ void psPostRWinit(void)
 	_InputInitialiseMouse(false);
 
 	if(!(vm.flags & rwVIDEOMODEEXCLUSIVE))
+#ifdef LINUX_DUAL_SCREEN
+		glfwSetWindowSize(PSGLOBAL(window), LINUX_WINDOW_WIDTH, LINUX_WINDOW_HEIGHT);
+#else
 		glfwSetWindowSize(PSGLOBAL(window), RsGlobal.maximumWidth, RsGlobal.maximumHeight);
+#endif
+#ifdef LINUX_DUAL_SCREEN
+	glfwSetWindowAttrib(PSGLOBAL(window), GLFW_RESIZABLE, GLFW_FALSE);
+	glfwSetWindowSizeLimits(PSGLOBAL(window), LINUX_WINDOW_WIDTH, LINUX_WINDOW_HEIGHT,
+		LINUX_WINDOW_WIDTH, LINUX_WINDOW_HEIGHT);
+#endif
 
 	// Make sure all keys are released
 	CPad::GetPad(0)->Clear(true);
@@ -1401,6 +1495,16 @@ void resizeCB(GLFWwindow* window, int width, int height) {
 	if (RwInitialised && height > 0 && width > 0) {
 		RwRect r;
 
+#ifdef LINUX_DUAL_SCREEN
+		if(width != LINUX_WINDOW_WIDTH || height != LINUX_WINDOW_HEIGHT)
+			glfwSetWindowSize(window, LINUX_WINDOW_WIDTH, LINUX_WINDOW_HEIGHT);
+		RsGlobal.maximumWidth = LINUX_TOP_SCREEN_WIDTH;
+		RsGlobal.maximumHeight = LINUX_TOP_SCREEN_HEIGHT;
+		r.x = 0;
+		r.y = 0;
+		r.w = LINUX_TOP_SCREEN_WIDTH;
+		r.h = LINUX_TOP_SCREEN_HEIGHT;
+#else
 		// TODO fix artifacts of resizing with mouse
 		RsGlobal.maximumHeight = height;
 		RsGlobal.maximumWidth = width;
@@ -1409,6 +1513,7 @@ void resizeCB(GLFWwindow* window, int width, int height) {
 		r.y = 0;
 		r.w = width;
 		r.h = height;
+#endif
 
 		RsEventHandler(rsCAMERASIZE, &r);
 	}
@@ -1845,8 +1950,15 @@ cursorCB(GLFWwindow* window, double xpos, double ypos) {
 	
 	int winw, winh;
 	glfwGetWindowSize(PSGLOBAL(window), &winw, &winh);
+#ifdef LINUX_DUAL_SCREEN
+	FrontEndMenuManager.m_nMouseTempPosX = xpos;
+	FrontEndMenuManager.m_nMouseTempPosY = ypos;
+	(void)winw;
+	(void)winh;
+#else
 	FrontEndMenuManager.m_nMouseTempPosX = xpos * (RsGlobal.maximumWidth / winw);
 	FrontEndMenuManager.m_nMouseTempPosY = ypos * (RsGlobal.maximumHeight / winh);
+#endif
 }
 
 void
@@ -1953,6 +2065,10 @@ main(int argc, char *argv[])
 
 	openParams.width = RsGlobal.maximumWidth;
 	openParams.height = RsGlobal.maximumHeight;
+#ifdef LINUX_DUAL_SCREEN
+	openParams.width = LINUX_WINDOW_WIDTH;
+	openParams.height = LINUX_WINDOW_HEIGHT;
+#endif
 	openParams.windowtitle = RsGlobal.appName;
 	openParams.window = &PSGLOBAL(window);
 	
@@ -2001,8 +2117,13 @@ main(int argc, char *argv[])
 
 		r.x = 0;
 		r.y = 0;
+#ifdef LINUX_DUAL_SCREEN
+		r.w = LINUX_TOP_SCREEN_WIDTH;
+		r.h = LINUX_TOP_SCREEN_HEIGHT;
+#else
 		r.w = RsGlobal.maximumWidth;
 		r.h = RsGlobal.maximumHeight;
+#endif
 
 		RsEventHandler(rsCAMERASIZE, &r);
 	}

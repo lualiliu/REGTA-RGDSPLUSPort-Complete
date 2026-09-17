@@ -223,6 +223,10 @@ CStreaming::Init2(void)
 	ms_memoryAvailable = (_dwMemAvailPhys - 10*MB)/2;
 	if(ms_memoryAvailable < 50*MB)
 		ms_memoryAvailable = 50*MB;
+#ifdef LOWEND_GPU
+	if(ms_memoryAvailable > 96*MB)
+		ms_memoryAvailable = 96*MB;
+#endif
 	desiredNumVehiclesLoaded = (int32)((ms_memoryAvailable / MB - 50) / 3 + 12);
 	if(desiredNumVehiclesLoaded > MAXVEHICLESLOADED)
 		desiredNumVehiclesLoaded = MAXVEHICLESLOADED;
@@ -2693,6 +2697,9 @@ CStreaming::MakeSpaceFor(int32 size)
 		extern size_t _dwMemAvailPhys;
 		ms_memoryAvailable = (_dwMemAvailPhys - 10 * MB) / 2;
 		if(ms_memoryAvailable < 50 * MB) ms_memoryAvailable = 50 * MB;
+#ifdef LOWEND_GPU
+		if(ms_memoryAvailable > 96 * MB) ms_memoryAvailable = 96 * MB;
+#endif
 	}
 #undef MB
 #endif

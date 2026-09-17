@@ -729,7 +729,7 @@ CCamera::Process(void)
 	GenerationDistMultiplier = LODDistMultiplier;
 	// Generation distance is deliberately captured above: keep GTA3's dense
 	// traffic while trimming only the last slice of distant rendering on 3DS.
-#ifdef _3DS
+#ifdef LOWEND_GPU
 	LODDistMultiplier *= Min(CRenderer::ms_lodDistScale, 1.1f);
 #else
 	LODDistMultiplier *= CRenderer::ms_lodDistScale;
@@ -1058,6 +1058,9 @@ CCamera::CamControl(void)
 			ReqMode = CCam::MODE_FOLLOWPED;
 
 			// Check 1st person mode
+#ifdef RGDS_PLUS
+			m_bFirstPersonBeingUsed = false;
+#else
 			if(m_bLookingAtPlayer && pTargetEntity->IsPed() && !m_WideScreenOn && !Cams[0].Using3rdPersonMouseCam()
 #ifdef FREE_CAM
 			   && !CCamera::bFreeCam
@@ -1084,6 +1087,7 @@ CCamera::CamControl(void)
 				ReqMode = CCam::MODE_1STPERSON;
 				CPad::GetPad(0)->SetDisablePlayerControls(PLAYERCONTROL_CAMERA);
 			}
+#endif
 
 			// Zoom value
 			if(PedZoomIndicator == CAM_ZOOM_1)

@@ -947,8 +947,10 @@ void CRadar::DrawRadarSprite(uint16 sprite, float x, float y, uint8 alpha)
 {
 	float sizeX = SCREEN_SCALE_X(8.0f);
 	float sizeY = SCREEN_SCALE_Y(8.0f);
+#ifdef ENABLE_3DS_BOTTOM_RADAR
 	if (m_bDrawingBottomScreen)
 		sizeX = sizeY = 9.0f;
+#endif
 	RadarSprites[sprite]->Draw(CRect(x - sizeX, y - sizeY, x + sizeX, y + sizeY), CRGBA(255, 255, 255, alpha));
 
 	if (FrontEndMenuManager.m_bMenuMapActive) {
@@ -970,8 +972,10 @@ void CRadar::DrawRotatingRadarSprite(CSprite2d* sprite, float x, float y, float 
 	float sizeX = SCREEN_SCALE_X(8.0f);
 	const float correctedAngle = angle - PI / 4.f;
 	float sizeY = SCREEN_SCALE_Y(8.0f);
+#ifdef ENABLE_3DS_BOTTOM_RADAR
 	if (m_bDrawingBottomScreen)
 		sizeX = sizeY = 9.0f;
+#endif
 
 	for (uint32 i = 0; i < 4; i++) {
 		const float cornerAngle = i * HALFPI + correctedAngle;
@@ -1543,11 +1547,13 @@ void CRadar::TransformRadarPointToRealWorldSpace(CVector2D &out, const CVector2D
 // Radar space goes from -1.0 to 1.0 in x and y, top right is (1.0, 1.0)
 void CRadar::TransformRadarPointToScreenSpace(CVector2D &out, const CVector2D &in)
 {
+#ifdef ENABLE_3DS_BOTTOM_RADAR
 	if (m_bDrawingBottomScreen) {
 		out.x = 120.0f + in.x * 120.0f;
 		out.y = 120.0f - in.y * 120.0f;
 		return;
 	}
+#endif
 	if (FrontEndMenuManager.m_bMenuMapActive) {
 #if defined(_3DS) && defined(ENABLE_3DS_BOTTOM_RADAR)
 		/* The menu atlas is fixed in world space; use its measured affine map
@@ -1763,8 +1769,10 @@ CRadar::DrawEntityBlip(int32 blipId)
 						else mode = BLIP_MODE_SQUARE;
 					}
 					uint32 traceSize = ms_RadarTrace[blipId].m_wScale;
+#ifdef ENABLE_3DS_BOTTOM_RADAR
 					if (m_bDrawingBottomScreen)
 						traceSize = Max(traceSize, 6U);
+#endif
 					ShowRadarTraceWithHeight(out.x, out.y, traceSize, (uint8)(color >> 24), (uint8)(color >> 16), (uint8)(color >> 8), 255, mode);
 
 					if (FrontEndMenuManager.m_bMenuMapActive) {
@@ -1817,8 +1825,10 @@ CRadar::DrawCoordBlip(int32 blipId)
 						else mode = BLIP_MODE_SQUARE;
 					}
 					uint32 traceSize = ms_RadarTrace[blipId].m_wScale;
+#ifdef ENABLE_3DS_BOTTOM_RADAR
 					if (m_bDrawingBottomScreen)
 						traceSize = Max(traceSize, 6U);
+#endif
 					ShowRadarTraceWithHeight(out.x, out.y, traceSize, (uint8)(color >> 24), (uint8)(color >> 16), (uint8)(color >> 8), 255, mode);
 
 					if (FrontEndMenuManager.m_bMenuMapActive) {

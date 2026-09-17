@@ -281,10 +281,12 @@ public:
 	void AffectFromXinput(uint32 pad);
 #endif
 
+#ifdef ENABLE_3DS_BOTTOM_RADAR
+	static bool Is3DSTouchOverlayVisible();
+#endif
 #ifdef _3DS
 	void AffectFrom3DS();
 	bool Get3DSRifleFirstPersonAim();
-	static bool Is3DSTouchOverlayVisible();
 #endif
 
 	// mouse

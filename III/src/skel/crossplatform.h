@@ -53,6 +53,9 @@ FILE *_fcaseopen(char const *filename, char const *mode);
 #endif
 
 #ifdef RW_GL3
+#ifdef LIBRW_SDL2
+#include "glfw_sdl2.h"
+#endif
 typedef struct
 {
     GLFWwindow* window;

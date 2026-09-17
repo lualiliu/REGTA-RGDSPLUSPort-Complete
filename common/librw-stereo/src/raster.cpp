@@ -574,6 +574,8 @@ Raster::convertTexToCurrentPlatform(rw::Raster *ras)
 {
 	using namespace rw;
 
+	if(ras == nil)
+		return nil;
 	if(ras->platform == rw::platform)
 		return ras;
 	// compatible platforms

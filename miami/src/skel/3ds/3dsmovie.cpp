@@ -1,3 +1,4 @@
+#ifdef RW_3DS
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -268,3 +269,4 @@ Play3DSStartupMovies(void)
 	Play3DSMovie("movies/Logo.3mv", "movies/Logo.pcm");
 	Play3DSMovie("movies/GTAtitles.3mv", "movies/GTAtitles.pcm");
 }
+#endif

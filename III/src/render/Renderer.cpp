@@ -80,10 +80,12 @@ CEntity *CRenderer::ms_aVisibleBuildingPtrs[NUMVISIBLEENTITIES];
 CVector CRenderer::ms_vecCameraPosition;
 CVehicle *CRenderer::m_pFirstPersonVehicle;
 bool CRenderer::m_loadingPriority;
-#ifdef _3DS
-/* Switch world geometry to its existing low-detail models earlier on 3DS.
- * Draw distance is unchanged; only the high-detail LOD range is scaled. */
+#ifdef RGDS_PLUS
 float CRenderer::ms_lodDistScale = 0.65f;
+#elif defined(LOWEND_GPU)
+/* Switch world geometry to its existing low-detail models earlier.
+ * Draw distance is unchanged; only the high-detail LOD range is scaled. */
+float CRenderer::ms_lodDistScale = 0.8f;
 #else
 float CRenderer::ms_lodDistScale = 1.2f;
 #endif
@@ -228,11 +230,16 @@ CRenderer::RenderOneNonRoad(CEntity *e)
 	if(e->IsVehicle()){
 		veh = (CVehicle*)e;
 		bool renderOccupants = true;
-#ifdef _3DS
+#ifdef LOWEND_GPU
 		// Occupant skinning is expensive and unreadable at this distance. Keep
 		// the player's car intact and cull only occupants in distant traffic.
+#ifdef RGDS_PLUS
+		renderOccupants = veh == FindPlayerVehicle() ||
+			(veh->GetPosition() - ms_vecCameraPosition).MagnitudeSqr() < SQR(18.0f);
+#else
 		renderOccupants = veh == FindPlayerVehicle() ||
 			(veh->GetPosition() - ms_vecCameraPosition).MagnitudeSqr() < SQR(28.0f);
+#endif
 #endif
 		if(renderOccupants){
 		if(veh->pDriver && veh->pDriver->m_nPedState == PED_DRIVING)

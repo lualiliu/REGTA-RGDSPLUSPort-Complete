@@ -11,12 +11,12 @@
 #include "../rwpipeline.h"
 #include "../rwobjects.h"
 #ifdef RW_OPENGL
-#include <GL/glew.h>
 #ifdef LIBRW_SDL2
 #include <SDL.h>
 #else
 #include <GLFW/glfw3.h>
 #endif
+#include "gl3compat.h"
 #include "rwgl3.h"
 #include "rwgl3shader.h"
 #include "rwgl3impl.h"
@@ -1244,7 +1244,11 @@ setFrameBuffer(Camera *cam)
 				Gl3Raster *oldfb = PLUGINOFFSET(Gl3Raster, natzb->fboMate, nativeRasterOffset);
 				if(oldfb->fbo){
 					bindFramebuffer(oldfb->fbo);
+#ifdef RW_GLES
+					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
+#else
 					glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, 0, 0);
+#endif
 					bindFramebuffer(natfb->fbo);
 				}
 				oldfb->fboMate = nil;
@@ -1255,15 +1259,60 @@ setFrameBuffer(Camera *cam)
 				if(gl3Caps.gles)
 					glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, natzb->texid);
 				else
+#ifdef RW_GLES
+					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, natzb->texid, 0);
+#else
 					glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, natzb->texid, 0);
+#endif
 			}
 		}
 	}else{
 		// remove z-buffer
 		if(natfb->fboMate && natfb->fbo)
+#ifdef RW_GLES
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
+#else
 			glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, 0, 0);
+#endif
 		natfb->fboMate = nil;
 	}
+}
+
+static void
+setCameraViewport(Camera *cam)
+{
+	int w, h;
+	int x, y;
+	Raster *fb = cam->frameBuffer->parent;
+	if(fb->type == Raster::CAMERA){
+#ifdef LIBRW_SDL2
+		SDL_GetWindowSize(glGlobals.window, &w, &h);
+#else
+		glfwGetWindowSize(glGlobals.window, &w, &h);
+#endif
+	}else{
+		w = fb->width;
+		h = fb->height;
+	}
+	x = 0;
+	y = 0;
+
+	// Got a subraster
+	if(cam->frameBuffer != fb){
+		x = cam->frameBuffer->offsetX;
+		// GL y offset is from bottom
+		y = h - cam->frameBuffer->height - cam->frameBuffer->offsetY;
+		w = cam->frameBuffer->width;
+		h = cam->frameBuffer->height;
+	}
+
+	glViewport(x, y, w, h);
+	glEnable(GL_SCISSOR_TEST);
+	glScissor(x, y, w, h);
+	glGlobals.presentWidth = w;
+	glGlobals.presentHeight = h;
+	glGlobals.presentOffX = x;
+	glGlobals.presentOffY = y;
 }
 
 static void
@@ -1341,40 +1390,7 @@ beginUpdate(Camera *cam)
 	}
 
 	setFrameBuffer(cam);
-
-	int w, h;
-	int x, y;
-	Raster *fb = cam->frameBuffer->parent;
-	if(fb->type == Raster::CAMERA){
-#ifdef LIBRW_SDL2
-		SDL_GetWindowSize(glGlobals.window, &w, &h);
-#else
-		glfwGetWindowSize(glGlobals.window, &w, &h);
-#endif
-	}else{
-		w = fb->width;
-		h = fb->height;
-	}
-	x = 0;
-	y = 0;
-
-	// Got a subraster
-	if(cam->frameBuffer != fb){
-		x = cam->frameBuffer->offsetX;
-		// GL y offset is from bottom
-		y = h - cam->frameBuffer->height - cam->frameBuffer->offsetY;
-		w = cam->frameBuffer->width;
-		h = cam->frameBuffer->height;
-	}
-
-	if(w != glGlobals.presentWidth || h != glGlobals.presentHeight ||
-	   x != glGlobals.presentOffX || y != glGlobals.presentOffY){
-		glViewport(x, y, w, h);
-		glGlobals.presentWidth = w;
-		glGlobals.presentHeight = h;
-		glGlobals.presentOffX = x;
-		glGlobals.presentOffY = y;
-	}
+	setCameraViewport(cam);
 }
 
 static void
@@ -1389,6 +1405,7 @@ clearCamera(Camera *cam, RGBA *col, uint32 mode)
 	GLbitfield mask;
 
 	setFrameBuffer(cam);
+	setCameraViewport(cam);
 
 	convColor(&colf, col);
 	glClearColor(colf.red, colf.green, colf.blue, colf.alpha);
@@ -1409,17 +1426,51 @@ showRaster(Raster *raster, uint32 flags)
 {
 	// TODO: do this properly!
 #ifdef LIBRW_SDL2
+#ifdef RGDS_PLUS
+	/* Two displays waiting on vsync serializes to ~30fps or worse. */
+	(void)flags;
+	SDL_GL_SwapWindow(glGlobals.window);
+#else
 	if(flags & Raster::FLIPWAITVSYNCH)
 		SDL_GL_SetSwapInterval(1);
 	else
 		SDL_GL_SetSwapInterval(0);
 	SDL_GL_SwapWindow(glGlobals.window);
+#endif
 #else
 	if(flags & Raster::FLIPWAITVSYNCH)
 		glfwSwapInterval(1);
 	else
 		glfwSwapInterval(0);
 	glfwSwapBuffers(glGlobals.window);
+#endif
+}
+
+void
+blitRasterToWindow(Raster *raster, int32 destX, int32 destY, int32 destW, int32 destH)
+{
+#ifdef RW_OPENGL
+	if(raster == nil || destW <= 0 || destH <= 0)
+		return;
+	Raster *fb = raster->parent;
+	Gl3Raster *natfb = GETGL3RASTEREXT(fb);
+	if(natfb == nil || natfb->fbo == 0)
+		return;
+	int winw = 0, winh = 0;
+#ifdef LIBRW_SDL2
+	SDL_GetWindowSize(glGlobals.window, &winw, &winh);
+#else
+	glfwGetWindowSize(glGlobals.window, &winw, &winh);
+#endif
+	int gy = winh - destY - destH;
+	glDisable(GL_SCISSOR_TEST);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, natfb->fbo);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+	glBlitFramebuffer(0, 0, fb->width, fb->height,
+		destX, gy, destX + destW, gy + destH,
+		GL_COLOR_BUFFER_BIT, GL_LINEAR);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	currentFramebuffer = 0;
 #endif
 }
 
@@ -1509,8 +1560,18 @@ openSDL2(EngineOpenParams *openparams)
 
 	memset(&gl3Caps, 0, sizeof(gl3Caps));
 
+	SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
+	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+	SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
+#ifdef RGDS_PLUS
+	SDL_SetHint(SDL_HINT_VIDEO_WAYLAND_ALLOW_LIBDECOR, "0");
+	/* Rockchip Weston already lays DSI-1/DSI-2 out as 2048x768 when this is set. */
+	setenv("WESTON_OUTPUT_FLOW", "horizontal", 1);
+	setenv("WESTON_DEFAULT_POSITION", "left-top", 0);
+#endif
+
 	/* Init SDL */
-	if(SDL_InitSubSystem(SDL_INIT_VIDEO)){
+	if(SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_JOYSTICK | SDL_INIT_EVENTS)){
 		RWERROR((ERR_GENERAL, SDL_GetError()));
 		return 0;
 	}
@@ -1531,10 +1592,17 @@ static struct {
 	int gl;
 	int major, minor;
 } profiles[] = {
+#ifdef RW_GLES
+	{ SDL_GL_CONTEXT_PROFILE_ES, 3, 2 },
+	{ SDL_GL_CONTEXT_PROFILE_ES, 3, 1 },
+	{ SDL_GL_CONTEXT_PROFILE_ES, 3, 0 },
+	{ SDL_GL_CONTEXT_PROFILE_ES, 2, 0 },
+#else
 	{ SDL_GL_CONTEXT_PROFILE_CORE, 3, 3 },
 	{ SDL_GL_CONTEXT_PROFILE_CORE, 2, 1 },
 	{ SDL_GL_CONTEXT_PROFILE_ES, 3, 1 },
 	{ SDL_GL_CONTEXT_PROFILE_ES, 2, 0 },
+#endif
 	{ 0, 0, 0 },
 };
 
@@ -1548,14 +1616,39 @@ startSDL2(void)
 
 	mode = &glGlobals.modes[glGlobals.currentMode];
 
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, glGlobals.numSamples);
+#ifdef RW_GLES
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#endif
+#ifdef RGDS_PLUS
+	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
+	SDL_SetHint("SDL_MOUSE_TOUCH_EVENTS", "0");
+#endif
 
 	int i;
+	win = nil;
 	for(i = 0; profiles[i].gl; i++){
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, profiles[i].gl);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, profiles[i].major);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, profiles[i].minor);
 
+#ifdef RGDS_PLUS
+		/* FULLSCREEN_DESKTOP binds to one 1024x768 output. A borderless
+		 * 2048x768 window at 0,0 spans DSI-1|DSI-2 under WESTON_OUTPUT_FLOW=horizontal. */
+		Uint32 flags = SDL_WINDOW_OPENGL | SDL_WINDOW_BORDERLESS | SDL_WINDOW_SHOWN;
+		win = SDL_CreateWindow(glGlobals.winTitle, 0, 0,
+			glGlobals.winWidth, glGlobals.winHeight, flags);
+		if(win){
+			int ww = 0, hh = 0;
+			SDL_SetWindowPosition(win, 0, 0);
+			SDL_SetWindowSize(win, glGlobals.winWidth, glGlobals.winHeight);
+			SDL_GetWindowSize(win, &ww, &hh);
+			if(ww != glGlobals.winWidth || hh != glGlobals.winHeight)
+				printf("RGDS: window size %dx%d, wanted %dx%d\n",
+					ww, hh, glGlobals.winWidth, glGlobals.winHeight);
+		}
+#else
 		if(mode->flags & VIDEOMODEEXCLUSIVE) {
 			win = SDL_CreateWindow(glGlobals.winTitle, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, mode->mode.w, mode->mode.h, SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN);
 			if (win)
@@ -1565,6 +1658,7 @@ startSDL2(void)
 			if (win)
 				SDL_SetWindowDisplayMode(win, NULL);
 		}
+#endif
 		if(win){
 			gl3Caps.gles = profiles[i].gl == SDL_GL_CONTEXT_PROFILE_ES;
 			gl3Caps.glversion = profiles[i].major*10 + profiles[i].minor;
@@ -1576,8 +1670,18 @@ startSDL2(void)
 		return 0;
 	}
 	ctx = SDL_GL_CreateContext(win);
+	if(ctx == nil){
+		RWERROR((ERR_GENERAL, SDL_GetError()));
+		SDL_DestroyWindow(win);
+		return 0;
+	}
 	printf("OpenGL version: %s\n", glGetString(GL_VERSION));
+	printf("SDL displays: %d\n", SDL_GetNumVideoDisplays());
+	printf("SDL touch devices: %d joysticks: %d\n", SDL_GetNumTouchDevices(), SDL_NumJoysticks());
 
+#ifdef RW_GLES
+	status = GLEW_OK;
+#else
 	/* Init GLEW */
 	glewExperimental = GL_TRUE;
 	status = glewInit();
@@ -1593,19 +1697,46 @@ startSDL2(void)
 		SDL_DestroyWindow(win);
 		return 0;
 	}
+#endif
 	glGlobals.window = win;
 	glGlobals.glcontext = ctx;
+#ifdef RGDS_PLUS
+	SDL_GL_SetSwapInterval(0);
+#endif
+	glGlobals.bottomWindow = nil;
 	*glGlobals.pWindow = win;
 	glGlobals.presentWidth = 0;
 	glGlobals.presentHeight = 0;
 	glGlobals.presentOffX = 0;
 	glGlobals.presentOffY = 0;
+
+#ifdef RGDS_PLUS
+	{
+		int ww = 0, hh = 0, i, ndisp;
+		SDL_GetWindowSize(win, &ww, &hh);
+		ndisp = SDL_GetNumVideoDisplays();
+		printf("RGDS: single window %dx%d (displays=%d flow=%s)\n",
+			ww, hh, ndisp,
+			getenv("WESTON_OUTPUT_FLOW") ? getenv("WESTON_OUTPUT_FLOW") : "unset");
+		for(i = 0; i < ndisp; i++){
+			SDL_Rect b;
+			SDL_GetDisplayBounds(i, &b);
+			printf("RGDS: display %d bounds %d,%d %dx%d\n", i, b.x, b.y, b.w, b.h);
+		}
+	}
+#endif
 	return 1;
 }
 
 static int
 stopSDL2(void)
 {
+#ifdef RGDS_PLUS
+	if(glGlobals.bottomWindow){
+		SDL_DestroyWindow(glGlobals.bottomWindow);
+		glGlobals.bottomWindow = nil;
+	}
+#endif
 	SDL_GL_DeleteContext(glGlobals.glcontext);
 	SDL_DestroyWindow(glGlobals.window);
 	return 1;
@@ -1925,6 +2056,19 @@ deviceSystemSDL2(DeviceReq req, void *arg, int32 n)
 		return finalizeOpenGL();
 
 	// TODO: implement subsystems
+	case DEVICEGETNUMSUBSYSTEMS:
+		return SDL_GetNumVideoDisplays() > 0 ? SDL_GetNumVideoDisplays() : 1;
+	case DEVICEGETCURRENTSUBSYSTEM:
+		return 0;
+	case DEVICESETSUBSYSTEM:
+		return 1;
+	case DEVICEGETSUBSSYSTEMINFO:
+		{
+			const char *name = SDL_GetDisplayName(n);
+			strncpy(((SubSystemInfo*)arg)->name, name ? name : "SDL2", sizeof(SubSystemInfo::name));
+			((SubSystemInfo*)arg)->name[sizeof(SubSystemInfo::name)-1] = 0;
+			return 1;
+		}
 
 	case DEVICEGETNUMVIDEOMODES:
 		return glGlobals.numModes;

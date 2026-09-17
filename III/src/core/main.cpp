@@ -16,6 +16,7 @@
 
 #include "main.h"
 #include "CdStream.h"
+#include "platform.h"
 #include "General.h"
 #include "RwHelper.h"
 #include "Clouds.h"
@@ -208,7 +209,7 @@ ClearBottomLoadingScreen(void)
 }
 #endif
 
-#if defined(_3DS) && defined(ENABLE_3DS_BOTTOM_RADAR)
+#ifdef ENABLE_3DS_BOTTOM_RADAR
 namespace {
 static RwCamera *BottomRadarCamera;
 static RwTexture *BottomMenuMapTexture;
@@ -230,8 +231,13 @@ CreateBottomRadarCamera(void)
 	RwCamera *camera = RwCameraCreate();
 	if(camera == nil) return nil;
 	RwFrame *frame = RwFrameCreate();
+#ifdef LINUX_DUAL_SCREEN
+	RwRaster *raster = RwRasterCreate(320, 240, 0, rwRASTERTYPECAMERATEXTURE);
+	RwRaster *zRaster = RwRasterCreate(320, 240, 0, rwRASTERTYPEZBUFFER);
+#else
 	RwRaster *raster = RwRasterCreate(320, 240, 0, rwRASTERTYPECAMERA);
 	RwRaster *zRaster = RwRasterCreate(320, 240, 0, rwRASTERTYPEZBUFFER);
+#endif
 	if(frame == nil || raster == nil || zRaster == nil) {
 		if(frame) RwFrameDestroy(frame);
 		if(raster) RwRasterDestroy(raster);
@@ -247,6 +253,18 @@ CreateBottomRadarCamera(void)
 	RwV2d viewWindow = { 0.7f, 0.525f };
 	RwCameraSetViewWindow(camera, &viewWindow);
 	return camera;
+}
+
+static void
+PresentBottomRadarCamera(void)
+{
+#ifdef LINUX_DUAL_SCREEN
+	psBlitRasterToWindow(RwCameraGetRaster(BottomRadarCamera),
+		LINUX_BOTTOM_SCREEN_X, LINUX_BOTTOM_SCREEN_Y,
+		LINUX_BOTTOM_SCREEN_WIDTH, LINUX_BOTTOM_SCREEN_HEIGHT);
+#else
+	RwCameraShowRaster(BottomRadarCamera, nil, rwRASTERFLIPDONTWAIT);
+#endif
 }
 
 static void
@@ -319,6 +337,7 @@ CreateEmbeddedTexturePart(const uint8 *rgba, int sourceWidth, const BottomTouchP
 static bool
 CreateBottomTouchTextures(void)
 {
+#if defined(_3DS)
 	unsigned char *rgba = nil;
 	unsigned width = 0, height = 0;
 	if(lodepng_decode32(&rgba, &width, &height,
@@ -335,11 +354,15 @@ CreateBottomTouchTextures(void)
 	}
 	free(rgba);
 	return true;
+#else
+	return false;
+#endif
 }
 
 static bool
 CreateBottomMenuMapTexture(void)
 {
+#if defined(_3DS)
 	unsigned char *rgba = nil;
 	unsigned width = 0, height = 0;
 	if(lodepng_decode32(&rgba, &width, &height,
@@ -352,6 +375,9 @@ CreateBottomMenuMapTexture(void)
 	BottomMenuMapTexture = CreateEmbeddedTexturePart(rgba, 320, part);
 	free(rgba);
 	return BottomMenuMapTexture != nil;
+#else
+	return false;
+#endif
 }
 
 static void
@@ -441,18 +467,30 @@ RenderBottomRadar(void)
 #endif
 	const bool coldStart = FrontEndMenuManager.m_bGameNotLoaded &&
 		FrontEndMenuManager.m_bMenuActive;
-	if(!coldStart && (FrontEndMenuManager.m_bGameNotLoaded || FrontEndMenuManager.m_bMenuActive))
+#ifndef RGDS_PLUS
+	if(!coldStart && (FrontEndMenuManager.m_bGameNotLoaded || FrontEndMenuManager.m_bMenuActive)) {
+#ifdef LINUX_DUAL_SCREEN
+		if(BottomRadarCamera)
+			PresentBottomRadarCamera();
+#endif
 		return; // Pause preserves the most recent lower-screen frame.
+	}
+#endif
 	if(BottomRadarCamera == nil)
 		BottomRadarCamera = CreateBottomRadarCamera();
 	if(BottomRadarCamera == nil) return;
+#ifdef RGDS_PLUS
+	const bool gameplay = !coldStart && FindPlayerPed() != nil &&
+		!CCutsceneMgr::IsCutsceneProcessing();
+#else
 	const bool gameplay = !coldStart && !TheCamera.m_WideScreenOn &&
 		!CCutsceneMgr::IsCutsceneProcessing() && CHud::m_Wants_To_Draw_Hud &&
 		FindPlayerPed() != nil;
-	CRGBA clear(0, 0, 0, 255);
-	RwCameraClear(BottomRadarCamera, &clear.rwRGBA,
-		rwCAMERACLEARIMAGE | rwCAMERACLEARZ | rwCAMERACLEARSTENCIL);
+#endif
 	if(coldStart) {
+		CRGBA clear(0, 0, 0, 255);
+		RwCameraClear(BottomRadarCamera, &clear.rwRGBA,
+			rwCAMERACLEARIMAGE | rwCAMERACLEARZ | rwCAMERACLEARSTENCIL);
 		if(RwCameraBeginUpdate(BottomRadarCamera)) {
 			CSprite2d::InitPerFrame();
 			RwRenderStateSet(rwRENDERSTATESRCBLEND, (void*)rwBLENDSRCALPHA);
@@ -462,13 +500,16 @@ RenderBottomRadar(void)
 			DrawBottomFrontEndWorldMap();
 			RwCameraEndUpdate(BottomRadarCamera);
 		}
-		RwCameraShowRaster(BottomRadarCamera, nil, rwRASTERFLIPDONTWAIT);
+		PresentBottomRadarCamera();
 		return;
 	}
 	if(!gameplay) {
-		RwCameraShowRaster(BottomRadarCamera, nil, rwRASTERFLIPDONTWAIT);
+		PresentBottomRadarCamera();
 		return;
 	}
+	CRGBA clear(0, 0, 0, 255);
+	RwCameraClear(BottomRadarCamera, &clear.rwRGBA,
+		rwCAMERACLEARIMAGE | rwCAMERACLEARZ | rwCAMERACLEARSTENCIL);
 	CPlayerPed *player = FindPlayerPed();
 	if(!RwCameraBeginUpdate(BottomRadarCamera)) return;
 	CSprite2d::InitPerFrame();
@@ -488,7 +529,7 @@ RenderBottomRadar(void)
 	DrawBottomHud(player);
 	DrawBottomTouchOverlay();
 	RwCameraEndUpdate(BottomRadarCamera);
-	RwCameraShowRaster(BottomRadarCamera, nil, rwRASTERFLIPDONTWAIT);
+	PresentBottomRadarCamera();
 }
 }
 
@@ -567,7 +608,7 @@ ValidateVersion()
 	int32 file = CFileMgr::OpenFile("models\\coll\\peds.col", "rb");
 	char buff[128];
 
-	if ( file != -1 )
+	if ( file )
 	{
 		CFileMgr::Seek(file, 100, SEEK_SET);
 		
@@ -588,6 +629,12 @@ ValidateVersion()
 		}
 	}
 
+#ifndef _WIN32
+	printf("Could not find game data (models/coll/peds.col).\n"
+	       "Run this binary from a directory that contains the original PC game files.\n");
+	fflush(stdout);
+	_Exit(1);
+#endif
 	LoadingScreen("Invalid version", NULL, NULL);
 	
 	while(true)
@@ -805,10 +852,14 @@ DoRWStuffEndOfFrame(void)
 		}
 	}
 #else
+#ifdef RGDS_PLUS
+	(void)0; /* Screenshot grab of the 320x240 FBO crashes Mali GLES. */
+#else
 	if (CPad::GetPad(1)->GetLeftShockJustDown() || CPad::GetPad(0)->GetFJustDown(11)) {
 		sprintf(s, "screen_%11lld.png", time(nil));
 		RwGrabScreen(Scene.camera, s);
 	}
+#endif
 #endif
 #endif // !MASTER
 }
@@ -1604,6 +1655,9 @@ DisplayGameDebugText()
 	
 	if ( FrameSamples > 30 )
 	{
+#ifdef RGDS_PLUS
+		printf("RGDS fps: %.1f\n", FramesPerSecond);
+#endif
 		FramesPerSecondCounter = 0.0f;
 		FrameSamples = 0;
 	}
@@ -2216,6 +2270,9 @@ AppEventHandler(RsEvent event, void *param)
 											
 			CameraSize(Scene.camera, (RwRect *)param,
 				SCREEN_VIEWWINDOW, DEFAULT_ASPECT_RATIO);
+#ifdef LINUX_DUAL_SCREEN
+			psApplyDualScreenTopCamera(Scene.camera);
+#endif
 			
 			return rsEVENTPROCESSED;
 		}

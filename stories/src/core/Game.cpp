@@ -234,6 +234,9 @@ CGame::InitialiseRenderWare(void)
 	RwCameraSetNearClipPlane(Scene.camera, 0.9f);
 	
 	CameraSize(Scene.camera, nil, DEFAULT_VIEWWINDOW, DEFAULT_ASPECT_RATIO);
+#ifdef LINUX_DUAL_SCREEN
+	psApplyDualScreenTopCamera(Scene.camera);
+#endif
 	
 	/* Create a world */
 	RwBBox  bbox;

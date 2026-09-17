@@ -20,8 +20,15 @@
 #include <shlguid.h>
 #elif defined(_3DS)
 #define _getcwd getcwd_3ds
+#include <AL/al.h>
+#include <AL/alc.h>
 #else
 #define _getcwd getcwd
+#include <AL/al.h>
+#include <AL/alc.h>
+#include <AL/alext.h>
+#include <AL/efx.h>
+#include <AL/efx-presets.h>
 #endif
 
 #if defined _MSC_VER && !defined CMAKE_NO_AUTOLINK

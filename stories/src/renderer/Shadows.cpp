@@ -1,7 +1,9 @@
 #include "common.h"
 
+#ifdef _3DS
 #include "lodepng/lodepng.h"
 #include "wincrack_32_bin.h"
+#endif
 
 #include "main.h"
 #include "TxdStore.h"
@@ -65,6 +67,7 @@ CPermanentShadow CShadows::aPermanentShadows[MAX_PERMAMENTSHADOWS];
 bool gbCountPolysInShadow;
 #endif
 
+#ifdef _3DS
 static RwTexture *
 CreateEmbeddedCrackedGlassTexture(void)
 {
@@ -112,6 +115,7 @@ CreateEmbeddedCrackedGlassTexture(void)
 	RwTextureSetAddressing(texture, rwTEXTUREADDRESSWRAP);
 	return texture;
 }
+#endif
 
 void
 CShadows::Init(void)
@@ -134,9 +138,13 @@ CShadows::Init(void)
 	gpBloodPoolTex        = RwTextureRead("bloodpool_64", nil);
 	//gpReflectionTex       = RwTextureRead("reflection01", nil);
 	gpWalkDontTex         = RwTextureRead("walk_dont",    nil);
+#ifdef _3DS
 	// LCS omits this inherited GTA III/VC texture from particle.txd.  Keep an
 	// exact embedded copy so scene-glass shards retain the original appearance.
 	gpCrackedGlassTex      = CreateEmbeddedCrackedGlassTexture();
+#else
+	gpCrackedGlassTex      = RwTextureRead("wincrack_32", nil);
+#endif
 	gpPostShadowTex       = RwTextureRead("lamp_shad_64", nil);
 
 	CTxdStore::PopCurrentTxd();

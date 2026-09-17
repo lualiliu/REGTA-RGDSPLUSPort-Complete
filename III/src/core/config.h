@@ -281,6 +281,43 @@ enum Config {
 //#define NEW_RENDERER		// leeds-like world rendering, needs librw
 #endif
 
+#if defined(RGDS_PLUS)
+#define LINUX_DUAL_SCREEN
+#define ENABLE_3DS_BOTTOM_RADAR
+#define LINUX_WINDOW_WIDTH 2048
+#define LINUX_WINDOW_HEIGHT 768
+#define LINUX_TOP_SCREEN_WIDTH 1024
+#define LINUX_TOP_SCREEN_HEIGHT 768
+#define LINUX_BOTTOM_SCREEN_X 1024
+#define LINUX_BOTTOM_SCREEN_Y 0
+#define LINUX_BOTTOM_SCREEN_WIDTH 1024
+#define LINUX_BOTTOM_SCREEN_HEIGHT 768
+/* Internal 3D picture 640x480, blit onto the 1024x768 left panel. */
+#define LINUX_CAMERA_WIDTH 640
+#define LINUX_CAMERA_HEIGHT 480
+#define LOWEND_GPU
+#define EXTRA_MODEL_FLAGS
+#define HARDCODED_MODEL_FLAGS
+#undef PS2_ALPHA_TEST
+#elif defined(_3DS)
+#define LOWEND_GPU
+#elif defined(LIBRW) && defined(RW_GL3) && !defined(_3DS)
+#define LINUX_DUAL_SCREEN
+#define ENABLE_3DS_BOTTOM_RADAR
+#define LINUX_WINDOW_WIDTH 2048
+#define LINUX_WINDOW_HEIGHT 768
+#define LINUX_TOP_SCREEN_WIDTH 1024
+#define LINUX_TOP_SCREEN_HEIGHT 768
+#define LINUX_BOTTOM_SCREEN_X 1024
+#define LINUX_BOTTOM_SCREEN_Y 0
+#define LINUX_BOTTOM_SCREEN_WIDTH 1024
+#define LINUX_BOTTOM_SCREEN_HEIGHT 768
+#endif
+#ifndef LINUX_CAMERA_WIDTH
+#define LINUX_CAMERA_WIDTH LINUX_TOP_SCREEN_WIDTH
+#define LINUX_CAMERA_HEIGHT LINUX_TOP_SCREEN_HEIGHT
+#endif
+
 #define FIX_SPRITES	// fix sprites aspect ratio(moon, coronas, particle etc)
 
 #ifndef EXTENDED_COLOURFILTER

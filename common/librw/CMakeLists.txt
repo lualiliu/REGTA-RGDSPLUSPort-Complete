@@ -32,6 +32,7 @@ endif()
 
 option(LIBRW_TOOLS "Build librw tools" ON)
 option(LIBRW_INSTALL "Install librw files" OFF)
+option(LIBRW_GLES "Use OpenGL ES instead of desktop OpenGL" OFF)
 
 if(LIBRW_INSTALL)
     include(GNUInstallDirs)

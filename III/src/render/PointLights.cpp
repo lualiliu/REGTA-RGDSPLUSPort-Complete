@@ -31,7 +31,9 @@ CPointLights::AddLight(uint8 type, CVector coors, CVector dir, float radius, flo
 	// we're doing it a bit better here
 	// Every registered light is tested against every lit vehicle/ped. Fires in
 	// a traffic pile-up can otherwise turn this into a large N*M cost on 3DS.
-#ifdef _3DS
+#ifdef RGDS_PLUS
+	if(NumLights >= 8)
+#elif defined(LOWEND_GPU)
 	if(NumLights >= 12)
 #else
 	if(NumLights >= NUMPOINTLIGHTS)

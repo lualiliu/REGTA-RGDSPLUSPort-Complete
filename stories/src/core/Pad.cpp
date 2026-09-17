@@ -2221,6 +2221,14 @@ CPad::Get3DSRifleFirstPersonAim()
 
 #endif
 
+#if defined(ENABLE_3DS_BOTTOM_RADAR) && !defined(_3DS)
+bool
+CPad::Is3DSTouchOverlayVisible()
+{
+	return false;
+}
+#endif
+
 void CPad::UpdatePads(void)
 {
 	bool bUpdate = true;
